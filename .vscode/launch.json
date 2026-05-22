@@ -1,0 +1,49 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Ming Salvage MVP (Web)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "pythonArgs": ["-Xfrozen_modules=off"],
+      "args": [
+        "web_app:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8010",
+        "--reload"
+      ],
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "MING_SIM_DB": "${workspaceFolder}/data/ming_sim.db"
+      },
+      "preLaunchTask": "Build Ming Salvage Web",
+      "serverReadyAction": {
+        "pattern": "Uvicorn running on (http://\\S+)",
+        "uriFormat": "%s",
+        "action": "openExternally"
+      },
+      "justMyCode": true
+    },
+    {
+      "name": "Ming Salvage MVP (LLM)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "pythonArgs": ["-Xfrozen_modules=off"],
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "MING_SIM_DB": "${workspaceFolder}/data/ming_sim.db"
+      },
+      "justMyCode": true
+    }
+  ]
+}
