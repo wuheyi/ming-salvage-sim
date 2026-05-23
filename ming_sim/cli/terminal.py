@@ -40,7 +40,11 @@ def _print_header(session: GameSession) -> None:
 def choose_minister(session: GameSession) -> Optional[Character]:
     """列大臣，皇帝选一位。返回 None 表示退朝去审阅诏书。"""
     characters = session.content.characters
-    names = list(characters.keys())
+    # offstage（历史尚未登场）不进朝臣名单——到 debut 年月由月初 tick 自动转 active 后才现身。
+    names = [
+        name for name in characters
+        if session.db.get_character_status(name)[0] != "offstage"
+    ]
     print("\n可召见大臣：")
     for idx, name in enumerate(names, 1):
         c = characters[name]
@@ -225,6 +229,8 @@ def minister_chat(session: GameSession, character: Character) -> str:
         print()
         if result.proposed_directive is not None:
             _confirm_pending_directive(session, result.proposed_directive, character.name)
+        if result.appointed_minister:
+            print(f"【吏部铨选】{result.appointed_minister}已补入朝堂名册，本回合起可召见。\n")
         if result.court_action == "dismiss":
             print(f"{character.name}退下。\n")
             return "dismiss"

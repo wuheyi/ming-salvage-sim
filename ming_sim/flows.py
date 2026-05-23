@@ -171,7 +171,8 @@ def apply_fixed_period_flows(db: GameDB, state: GameState) -> List[Dict[str, obj
 
     # ── 建筑：固定产出 + 固定维护（纯程序化，不调 LLM）─────────────────────────
     # buildings 表 maintenance/output_amount 已是月值，不过 monthly_amount。
-    # 产出按 condition/100 折算；国库/内库走 economy_ledger，民心/皇威直改量表。
+    # 产出按 condition/100 折算；钱粮类（国库/内库）统一走内库（皇庄/织造性质，归皇室），
+    # 民心/皇威直改量表。
     building_rows = db.conn.execute(
         "SELECT id, name, condition, maintenance, output_metric, output_amount FROM buildings"
     ).fetchall()
@@ -186,8 +187,8 @@ def apply_fixed_period_flows(db: GameDB, state: GameState) -> List[Dict[str, obj
 
         if metric in ("国库", "内库"):
             if produced > 0:
-                db.record_issue_economy_move(state, metric, produced, "建筑产出", f"{name}{TURN_UNIT}产出")
-                flows.append({"dir": "income", "account": metric, "category": "建筑产出",
+                db.record_issue_economy_move(state, "内库", produced, "建筑产出", f"{name}{TURN_UNIT}产出")
+                flows.append({"dir": "income", "account": "内库", "category": "建筑产出",
                               "building": name, "amount": produced})
         elif metric in ("民心", "皇威"):
             if produced > 0:
@@ -197,9 +198,9 @@ def apply_fixed_period_flows(db: GameDB, state: GameState) -> List[Dict[str, obj
                               "building": name, "amount": state.metrics[metric] - before})
 
         if maintenance > 0:
-            paid = db.record_issue_economy_move(state, "国库", -maintenance, "建筑维护",
+            paid = db.record_issue_economy_move(state, "内库", -maintenance, "建筑维护",
                                                 f"{name}{TURN_UNIT}维护费")
-            flows.append({"dir": "expense", "account": "国库", "category": "建筑维护",
+            flows.append({"dir": "expense", "account": "内库", "category": "建筑维护",
                           "building": name, "needed": maintenance, "paid": abs(paid),
                           "shortfall": maintenance - abs(paid)})
 

@@ -66,6 +66,8 @@ def load_character_content() -> Tuple[Dict[str, Faction], Dict[str, Character]]:
             birth_year=int(item.get("birth_year") or 0),
             historical_death_year=int(item.get("historical_death_year") or 0),
             historical_death_month=int(item.get("historical_death_month") or 0),
+            debut_year=int(item.get("debut_year") or 0),
+            debut_month=int(item.get("debut_month") or 0),
             status=str(item.get("status") or "active"),
         )
 

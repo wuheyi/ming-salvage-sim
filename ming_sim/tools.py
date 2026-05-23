@@ -143,6 +143,33 @@ def build_minister_tools(character: Character, context: CourtContext):
         # 返回草稿标记，由 minister_chat / GameSession.chat 截获展示给皇帝确认，不在此入库。
         return f"__pending_directive__{text}"
 
+    def propose_appointment(name: str, office: str, faction: str = "中立", reason: str = "") -> str:
+        """【吏部专属】皇帝点名起用某位尚未在朝臣名单上的官员（如把当时还是底层小官的史可法
+        擢为浙江巡抚），由吏部尚书铨选拟任。仅当你判断此人在崇祯元年（1628）前后的明朝史实中
+        确有其人、且这一任命说得通（资历、籍贯、官阶大体合理）时，才调此 tool 把人补入名册。
+
+        判断规则——你（吏部尚书）凭历史常识自行裁断，不要无脑照办：
+        - 查无此人、或纯属皇帝杜撰的名字 → 不要调此 tool，直接在奏对中据实回禀「查无此员」。
+        - 史有其人但官阶悬殊得离谱（如以白身直拜内阁首辅）→ 不要调，劝谏皇帝。
+        - 史有其人、任命说得通 → 调此 tool。
+
+        参数：
+        - name：拟任者姓名。
+        - office：拟授官职（如「浙江巡抚」「登莱巡抚」）。
+        - faction：派系，取值须是现有派系之一（东林/阉党/皇党/军队/宗室/中立/西学），拿不准填「中立」。
+        - reason：铨选理由一句话，写明此人资历与任命依据。
+        """
+        nm = (name or "").strip()
+        off = (office or "").strip()
+        if not nm or not off:
+            return "铨选失败：姓名或拟授官职为空。"
+        import json as _json
+        payload = _json.dumps(
+            {"name": nm, "office": off, "faction": (faction or "中立").strip(), "reason": (reason or "").strip()},
+            ensure_ascii=False,
+        )
+        return f"__pending_appointment__{payload}"
+
     def dismiss_minister() -> str:
         """皇帝示意退下（如"退下""好，去办吧""朕知道了"等），调此 tool 结束本次召见。"""
         return "__dismiss__"
@@ -167,6 +194,9 @@ def build_minister_tools(character: Character, context: CourtContext):
         dismiss_minister,
         summon_minister,
     ]
+    # 吏部尚书专属：铨选任命，可把名册外的史实官员补入朝堂。
+    if character.office_type == "吏部":
+        tools.append(propose_appointment)
     if "check_treasury" in skill_ids:
         tools.append(check_treasury)
     if "allocate_payroll" in skill_ids:

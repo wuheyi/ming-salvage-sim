@@ -76,6 +76,7 @@ def resolve_directives(
     directives: List[sqlite3.Row],
     decree_text: str,
     deaths_this_turn: Optional[List[Dict[str, str]]] = None,
+    debuts_this_turn: Optional[List[Dict[str, str]]] = None,
     on_event: Optional[Callable[[str, str], None]] = None,
 ) -> str:
     """on_event(kind, data): 推演过程实时回调。
@@ -115,6 +116,7 @@ def resolve_directives(
             simulator, state, db, decree_text, directives_brief, previous_narrative,
             fixed_flows=fixed_flows,
             deaths_this_turn=deaths_this_turn,
+            debuts_this_turn=debuts_this_turn,
             on_thinking=lambda c: _emit("thinking", c),
             on_text=lambda c: _emit("text", c),
         )

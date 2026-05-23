@@ -161,3 +161,12 @@ class MinisterRegistry:
             return
         self.briefed.discard(character_name)
         self.agents[character.name] = self._create(character)
+
+    def register(self, character: Character) -> None:
+        """运行时新建人物（吏部铨选任命）后注册其 Agent，使本回合即可召见。
+        本回合刚登场，无需补喂月初 court_brief（标记为已 briefed）。"""
+        self.session_ids[character.name] = (
+            f"minister-{character.name}-turn-{self.context.state.turn}"
+        )
+        self.agents[character.name] = self._create(character)
+        self.briefed.add(character.name)

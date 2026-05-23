@@ -2242,7 +2242,7 @@ button:disabled {
   top: 100px;
   left: 8px;
   right: auto;
-  z-index: 12;
+  z-index: 10;
   width: 232px;
   max-height: calc(100vh - 220px);
   padding: 8px 10px 10px;

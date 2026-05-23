@@ -41,7 +41,9 @@ class Character:
     birth_year: int = 0  # 历史生年（公历，0=未填）
     historical_death_year: int = 0  # 历史卒年（公历，0=未填）
     historical_death_month: int = 0  # 1-12，0=未指定
-    status: str = "active"  # active | dismissed | imprisoned | exiled | retired | dead
+    debut_year: int = 0  # 历史登场年（公历，0=开局即在场）
+    debut_month: int = 0  # 1-12，0=不限月
+    status: str = "active"  # active | offstage | dismissed | imprisoned | exiled | retired | dead
 
 
 @dataclass

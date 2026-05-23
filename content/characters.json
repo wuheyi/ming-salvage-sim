@@ -49,24 +49,43 @@
       "office": "司礼监近侍",
       "office_type": "司礼监",
       "faction": "皇党",
-      "aliases": ["王伴伴", "老王", "王公公", "司礼监"],
-      "personal_skills": ["谨慎传旨", "宫中人情", "贴身侍奉"],
+      "aliases": [
+        "王伴伴",
+        "老王",
+        "王公公",
+        "司礼监"
+      ],
+      "personal_skills": [
+        "谨慎传旨",
+        "宫中人情",
+        "贴身侍奉"
+      ],
       "loyalty": 88,
       "ability": 54,
       "integrity": 70,
       "courage": 62,
       "style": "谨慎忠诚",
       "birth_year": 1610,
-      "historical_death_year": 1644,
-      "historical_death_month": 3
+      "historical_death_year": 0,
+      "historical_death_month": 0
     },
     {
       "name": "韩爌",
       "office": "内阁重臣",
       "office_type": "内阁",
       "faction": "东林",
-      "aliases": ["韩阁老", "韩阁臣", "老韩", "阁老", "内阁"],
-      "personal_skills": ["制度名分", "清流舆论", "持重调和"],
+      "aliases": [
+        "韩阁老",
+        "韩阁臣",
+        "老韩",
+        "阁老",
+        "内阁"
+      ],
+      "personal_skills": [
+        "制度名分",
+        "清流舆论",
+        "持重调和"
+      ],
       "loyalty": 63,
       "ability": 69,
       "integrity": 78,
@@ -81,8 +100,20 @@
       "office": "户部尚书",
       "office_type": "户部",
       "faction": "皇党",
-      "aliases": ["老严", "严毕自", "毕尚书", "毕户部", "户部尚书", "户部"],
-      "personal_skills": ["财政核算", "清查亏空", "军饷调度", "务实算账"],
+      "aliases": [
+        "老严",
+        "严毕自",
+        "毕尚书",
+        "毕户部",
+        "户部尚书",
+        "户部"
+      ],
+      "personal_skills": [
+        "财政核算",
+        "清查亏空",
+        "军饷调度",
+        "务实算账"
+      ],
       "loyalty": 68,
       "ability": 84,
       "integrity": 78,
@@ -97,24 +128,45 @@
       "office": "辽东督师",
       "office_type": "边镇",
       "faction": "军队",
-      "aliases": ["老袁", "袁督师", "督师", "辽东督师", "边镇"],
-      "personal_skills": ["辽东军务", "守城筑防", "前线谈判", "敢任事"],
+      "aliases": [
+        "老袁",
+        "袁督师",
+        "督师",
+        "辽东督师",
+        "边镇"
+      ],
+      "personal_skills": [
+        "辽东军务",
+        "守城筑防",
+        "前线谈判",
+        "敢任事"
+      ],
       "loyalty": 56,
       "ability": 81,
       "integrity": 61,
       "courage": 88,
       "style": "敢任事",
       "birth_year": 1584,
-      "historical_death_year": 1630,
-      "historical_death_month": 8
+      "historical_death_year": 0,
+      "historical_death_month": 0
     },
     {
       "name": "徐光启",
       "office": "西学与农政重臣",
       "office_type": "工部",
-      "faction": "技术官僚",
-      "aliases": ["徐先生", "老徐", "徐农政", "工部", "西学重臣"],
-      "personal_skills": ["西学", "农政", "火器试办"],
+      "faction": "西学",
+      "aliases": [
+        "徐先生",
+        "老徐",
+        "徐农政",
+        "工部",
+        "西学重臣"
+      ],
+      "personal_skills": [
+        "西学",
+        "农政",
+        "火器试办"
+      ],
       "loyalty": 72,
       "ability": 77,
       "integrity": 82,
@@ -126,59 +178,103 @@
     },
     {
       "name": "魏忠贤",
-      "office": "前司礼监秉笔兼厂臣",
+      "office": "司礼监秉笔太监兼东厂提督",
       "office_type": "东厂",
       "faction": "阉党",
-      "aliases": ["九千岁", "老魏", "魏阉", "魏厂臣", "东厂"],
-      "personal_skills": ["厂卫旧线", "内廷权术", "压制外朝", "密查账册"],
+      "aliases": [
+        "九千岁",
+        "老魏",
+        "魏阉",
+        "魏厂臣",
+        "东厂"
+      ],
+      "personal_skills": [
+        "厂卫旧线",
+        "内廷权术",
+        "压制外朝",
+        "密查账册"
+      ],
       "loyalty": 35,
       "ability": 76,
       "integrity": 18,
       "courage": 74,
       "style": "狠辣务实",
       "birth_year": 1568,
-      "historical_death_year": 1627,
-      "historical_death_month": 11
+      "historical_death_year": 0,
+      "historical_death_month": 0
     },
     {
       "name": "孙承宗",
       "office": "兵部老臣",
       "office_type": "兵部",
       "faction": "东林",
-      "aliases": ["孙阁老", "老孙", "孙兵部", "兵部老臣", "兵部"],
-      "personal_skills": ["辽东战略", "将领评估", "老成持重", "清议名分"],
+      "aliases": [
+        "孙阁老",
+        "老孙",
+        "孙兵部",
+        "兵部老臣",
+        "兵部"
+      ],
+      "personal_skills": [
+        "辽东战略",
+        "将领评估",
+        "老成持重",
+        "清议名分"
+      ],
       "loyalty": 69,
       "ability": 85,
       "integrity": 81,
       "courage": 72,
       "style": "老成持重",
       "birth_year": 1563,
-      "historical_death_year": 1638,
-      "historical_death_month": 11
+      "historical_death_year": 0,
+      "historical_death_month": 0
     },
     {
       "name": "田尔耕",
       "office": "锦衣卫都指挥使",
       "office_type": "锦衣卫",
       "faction": "阉党",
-      "aliases": ["田都督", "田指挥", "田尔耕", "锦衣卫", "都指挥使"],
-      "personal_skills": ["缇骑密查", "诏狱拷讯", "勒索追赃", "压制朝臣"],
+      "aliases": [
+        "田都督",
+        "田指挥",
+        "田尔耕",
+        "锦衣卫",
+        "都指挥使"
+      ],
+      "personal_skills": [
+        "缇骑密查",
+        "诏狱拷讯",
+        "勒索追赃",
+        "压制朝臣"
+      ],
       "loyalty": 38,
       "ability": 64,
       "integrity": 22,
       "courage": 70,
       "style": "酷烈狠辣",
       "birth_year": 1565,
-      "historical_death_year": 1628,
-      "historical_death_month": 5
+      "historical_death_year": 0,
+      "historical_death_month": 0
     },
     {
       "name": "曹化淳",
       "office": "司礼监秉笔兼提督东厂",
       "office_type": "司礼监",
       "faction": "皇党",
-      "aliases": ["曹公公", "老曹", "曹太监", "曹化淳", "司礼监秉笔"],
-      "personal_skills": ["内廷传旨", "厂卫调度", "宫中调和", "通晓书画"],
+      "aliases": [
+        "曹公公",
+        "老曹",
+        "曹太监",
+        "曹化淳",
+        "司礼监秉笔"
+      ],
+      "personal_skills": [
+        "内廷传旨",
+        "厂卫调度",
+        "宫中调和",
+        "通晓书画"
+      ],
       "loyalty": 80,
       "ability": 66,
       "integrity": 64,
@@ -193,8 +289,19 @@
       "office": "陕西三边总督",
       "office_type": "边镇",
       "faction": "皇党",
-      "aliases": ["老洪", "洪督师", "洪总督", "三边总督", "洪亨九"],
-      "personal_skills": ["剿抚流寇", "西北军务", "权谋深沉", "知兵识势"],
+      "aliases": [
+        "老洪",
+        "洪督师",
+        "洪总督",
+        "三边总督",
+        "洪亨九"
+      ],
+      "personal_skills": [
+        "剿抚流寇",
+        "西北军务",
+        "权谋深沉",
+        "知兵识势"
+      ],
       "loyalty": 60,
       "ability": 87,
       "integrity": 65,
@@ -202,31 +309,59 @@
       "style": "深沉权变",
       "birth_year": 1593,
       "historical_death_year": 1665,
-      "historical_death_month": 0
+      "historical_death_month": 0,
+      "debut_year": 1630,
+      "debut_month": 1,
+      "status": "offstage"
     },
     {
       "name": "卢象升",
       "office": "宣大总督",
       "office_type": "边镇",
       "faction": "东林",
-      "aliases": ["卢督师", "老卢", "宣大总督", "卢九台", "卢象升"],
-      "personal_skills": ["练兵亲征", "天雄军", "守边抗虏", "清正勇决"],
+      "aliases": [
+        "卢督师",
+        "老卢",
+        "宣大总督",
+        "卢九台",
+        "卢象升"
+      ],
+      "personal_skills": [
+        "练兵亲征",
+        "天雄军",
+        "守边抗虏",
+        "清正勇决"
+      ],
       "loyalty": 85,
       "ability": 82,
       "integrity": 88,
       "courage": 92,
       "style": "刚烈忠勇",
       "birth_year": 1600,
-      "historical_death_year": 1639,
-      "historical_death_month": 1
+      "historical_death_year": 0,
+      "historical_death_month": 0,
+      "debut_year": 1629,
+      "debut_month": 1,
+      "status": "offstage"
     },
     {
       "name": "温体仁",
       "office": "内阁次辅",
       "office_type": "内阁",
       "faction": "皇党",
-      "aliases": ["温阁老", "温次辅", "老温", "温体仁", "次辅"],
-      "personal_skills": ["票拟把持", "排挤异己", "迎合上意", "察言观色"],
+      "aliases": [
+        "温阁老",
+        "温次辅",
+        "老温",
+        "温体仁",
+        "次辅"
+      ],
+      "personal_skills": [
+        "票拟把持",
+        "排挤异己",
+        "迎合上意",
+        "察言观色"
+      ],
       "loyalty": 55,
       "ability": 72,
       "integrity": 30,
@@ -241,16 +376,480 @@
       "office": "兵部尚书",
       "office_type": "兵部",
       "faction": "皇党",
-      "aliases": ["杨尚书", "杨兵部", "杨嗣昌", "杨文弱"],
-      "personal_skills": ["四正六隅", "十面张网", "议和后金", "调度边军"],
+      "aliases": [
+        "杨尚书",
+        "杨兵部",
+        "杨嗣昌",
+        "杨文弱"
+      ],
+      "personal_skills": [
+        "四正六隅",
+        "十面张网",
+        "议和后金",
+        "调度边军"
+      ],
       "loyalty": 75,
       "ability": 80,
       "integrity": 58,
       "courage": 65,
       "style": "筹谋深远",
       "birth_year": 1588,
-      "historical_death_year": 1641,
-      "historical_death_month": 4
+      "historical_death_year": 0,
+      "historical_death_month": 0,
+      "debut_year": 1635,
+      "debut_month": 8,
+      "status": "offstage"
+    },
+    {
+      "name": "李标",
+      "office": "内阁首辅",
+      "office_type": "内阁",
+      "faction": "东林",
+      "aliases": [
+        "李阁老",
+        "李首辅",
+        "首辅",
+        "李标",
+        "李建霞"
+      ],
+      "personal_skills": [
+        "调和阁务",
+        "持正用人",
+        "票拟稳健"
+      ],
+      "loyalty": 70,
+      "ability": 68,
+      "integrity": 80,
+      "courage": 54,
+      "style": "公正谨饬",
+      "birth_year": 1571,
+      "historical_death_year": 1642,
+      "historical_death_month": 0
+    },
+    {
+      "name": "钱龙锡",
+      "office": "内阁大学士",
+      "office_type": "内阁",
+      "faction": "东林",
+      "aliases": [
+        "钱阁老",
+        "钱龙锡",
+        "钱大学士",
+        "钱机山"
+      ],
+      "personal_skills": [
+        "定逆案",
+        "枢机谋断",
+        "清流人脉"
+      ],
+      "loyalty": 66,
+      "ability": 71,
+      "integrity": 74,
+      "courage": 58,
+      "style": "缜密任事",
+      "birth_year": 1579,
+      "historical_death_year": 1645,
+      "historical_death_month": 0
+    },
+    {
+      "name": "刘鸿训",
+      "office": "内阁大学士",
+      "office_type": "内阁",
+      "faction": "东林",
+      "aliases": [
+        "刘阁老",
+        "刘鸿训",
+        "刘大学士",
+        "刘默承"
+      ],
+      "personal_skills": [
+        "票拟决断",
+        "边饷筹划",
+        "敢言直谏"
+      ],
+      "loyalty": 64,
+      "ability": 70,
+      "integrity": 72,
+      "courage": 68,
+      "style": "果敢负气",
+      "birth_year": 1565,
+      "historical_death_year": 1634,
+      "historical_death_month": 0
+    },
+    {
+      "name": "王永光",
+      "office": "吏部尚书",
+      "office_type": "吏部",
+      "faction": "中立",
+      "aliases": [
+        "王尚书",
+        "王吏部",
+        "王永光",
+        "吏部尚书",
+        "吏部"
+      ],
+      "personal_skills": [
+        "铨选注官",
+        "考功核察",
+        "通晓掌故"
+      ],
+      "loyalty": 58,
+      "ability": 73,
+      "integrity": 52,
+      "courage": 50,
+      "style": "圆熟趋避",
+      "birth_year": 1559,
+      "historical_death_year": 1638,
+      "historical_death_month": 0
+    },
+    {
+      "name": "来宗道",
+      "office": "礼部尚书",
+      "office_type": "礼部",
+      "faction": "中立",
+      "aliases": [
+        "来尚书",
+        "来礼部",
+        "来宗道",
+        "礼部尚书",
+        "礼部"
+      ],
+      "personal_skills": [
+        "典礼仪制",
+        "科场文衡",
+        "持重少言"
+      ],
+      "loyalty": 56,
+      "ability": 62,
+      "integrity": 55,
+      "courage": 44,
+      "style": "明哲守位",
+      "birth_year": 1560,
+      "historical_death_year": 1632,
+      "historical_death_month": 0
+    },
+    {
+      "name": "王在晋",
+      "office": "兵部尚书",
+      "office_type": "兵部",
+      "faction": "中立",
+      "aliases": [
+        "王在晋",
+        "王兵部",
+        "王岵云"
+      ],
+      "personal_skills": [
+        "边镇方略",
+        "钱粮综核",
+        "重关守议"
+      ],
+      "loyalty": 60,
+      "ability": 72,
+      "integrity": 60,
+      "courage": 55,
+      "style": "持重多虑",
+      "birth_year": 1567,
+      "historical_death_year": 1643,
+      "historical_death_month": 0
+    },
+    {
+      "name": "周延儒",
+      "office": "礼部右侍郎",
+      "office_type": "礼部",
+      "faction": "皇党",
+      "aliases": [
+        "周延儒",
+        "周侍郎",
+        "周玉绳"
+      ],
+      "personal_skills": [
+        "迎合上意",
+        "敏给应对",
+        "结纳逢迎"
+      ],
+      "loyalty": 62,
+      "ability": 74,
+      "integrity": 32,
+      "courage": 52,
+      "style": "机巧善谀",
+      "birth_year": 1593,
+      "historical_death_year": 0,
+      "historical_death_month": 0
+    },
+    {
+      "name": "钱谦益",
+      "office": "礼部侍郎",
+      "office_type": "礼部",
+      "faction": "东林",
+      "aliases": [
+        "钱谦益",
+        "钱侍郎",
+        "钱牧斋",
+        "牧斋"
+      ],
+      "personal_skills": [
+        "东林领袖",
+        "清议文望",
+        "结党经营"
+      ],
+      "loyalty": 52,
+      "ability": 70,
+      "integrity": 45,
+      "courage": 40,
+      "style": "文采虚矫",
+      "birth_year": 1582,
+      "historical_death_year": 1664,
+      "historical_death_month": 0
+    },
+    {
+      "name": "黄道周",
+      "office": "翰林院编修",
+      "office_type": "翰林院",
+      "faction": "东林",
+      "aliases": [
+        "黄道周",
+        "黄编修",
+        "黄石斋",
+        "石斋"
+      ],
+      "personal_skills": [
+        "经术学问",
+        "刚直敢谏",
+        "清议风节"
+      ],
+      "loyalty": 78,
+      "ability": 68,
+      "integrity": 92,
+      "courage": 86,
+      "style": "孤介刚介",
+      "birth_year": 1585,
+      "historical_death_year": 0,
+      "historical_death_month": 0
+    },
+    {
+      "name": "倪元璐",
+      "office": "翰林院编修",
+      "office_type": "翰林院",
+      "faction": "东林",
+      "aliases": [
+        "倪元璐",
+        "倪编修",
+        "倪鸿宝"
+      ],
+      "personal_skills": [
+        "论劾阉党",
+        "财赋条议",
+        "书画文章"
+      ],
+      "loyalty": 80,
+      "ability": 69,
+      "integrity": 85,
+      "courage": 78,
+      "style": "清正敢任",
+      "birth_year": 1593,
+      "historical_death_year": 0,
+      "historical_death_month": 0
+    },
+    {
+      "name": "满桂",
+      "office": "大同总兵",
+      "office_type": "边镇",
+      "faction": "军队",
+      "aliases": [
+        "满桂",
+        "满总兵",
+        "大同总兵"
+      ],
+      "personal_skills": [
+        "骑战冲阵",
+        "宣大边务",
+        "悍勇敢战"
+      ],
+      "loyalty": 74,
+      "ability": 76,
+      "integrity": 62,
+      "courage": 90,
+      "style": "粗豪敢战",
+      "birth_year": 1594,
+      "historical_death_year": 0,
+      "historical_death_month": 0
+    },
+    {
+      "name": "赵率教",
+      "office": "山海关总兵",
+      "office_type": "边镇",
+      "faction": "军队",
+      "aliases": [
+        "赵率教",
+        "赵总兵",
+        "山海关总兵"
+      ],
+      "personal_skills": [
+        "守关御虏",
+        "练兵实战",
+        "临阵忘身"
+      ],
+      "loyalty": 76,
+      "ability": 75,
+      "integrity": 66,
+      "courage": 88,
+      "style": "忠勇任战",
+      "birth_year": 1569,
+      "historical_death_year": 0,
+      "historical_death_month": 0
+    },
+    {
+      "name": "祖大寿",
+      "office": "辽东前锋总兵",
+      "office_type": "边镇",
+      "faction": "军队",
+      "aliases": [
+        "祖大寿",
+        "祖总兵",
+        "祖复宇",
+        "辽东总兵"
+      ],
+      "personal_skills": [
+        "辽兵将门",
+        "守城用炮",
+        "保存实力"
+      ],
+      "loyalty": 50,
+      "ability": 77,
+      "integrity": 48,
+      "courage": 80,
+      "style": "护军自重",
+      "birth_year": 1579,
+      "historical_death_year": 1656,
+      "historical_death_month": 0
+    },
+    {
+      "name": "毛文龙",
+      "office": "东江镇总兵",
+      "office_type": "边镇",
+      "faction": "军队",
+      "aliases": [
+        "毛文龙",
+        "毛总兵",
+        "东江总兵",
+        "毛帅"
+      ],
+      "personal_skills": [
+        "敌后牵制",
+        "海岛屯结",
+        "虚报骄横"
+      ],
+      "loyalty": 44,
+      "ability": 66,
+      "integrity": 30,
+      "courage": 78,
+      "style": "跋扈难制",
+      "birth_year": 1576,
+      "historical_death_year": 0,
+      "historical_death_month": 0
+    },
+    {
+      "name": "袁可立",
+      "office": "前登莱巡抚",
+      "office_type": "都察院",
+      "faction": "东林",
+      "aliases": [
+        "袁可立",
+        "袁巡抚",
+        "袁节寰"
+      ],
+      "personal_skills": [
+        "登莱海防",
+        "节制东江",
+        "刚正持法"
+      ],
+      "loyalty": 79,
+      "ability": 80,
+      "integrity": 86,
+      "courage": 75,
+      "style": "刚方老练",
+      "birth_year": 1562,
+      "historical_death_year": 1633,
+      "historical_death_month": 10
+    },
+    {
+      "name": "曹文诏",
+      "office": "延绥东路副总兵",
+      "office_type": "边镇",
+      "faction": "军队",
+      "aliases": [
+        "曹文诏",
+        "曹副将",
+        "曹将军"
+      ],
+      "personal_skills": [
+        "剿寇骁将",
+        "马队突击",
+        "身先士卒"
+      ],
+      "loyalty": 72,
+      "ability": 78,
+      "integrity": 64,
+      "courage": 91,
+      "style": "勇冠诸将",
+      "birth_year": 1590,
+      "historical_death_year": 0,
+      "historical_death_month": 0
+    },
+    {
+      "name": "史可法",
+      "office": "西安府推官",
+      "office_type": "地方",
+      "faction": "东林",
+      "aliases": [
+        "史可法",
+        "史推官",
+        "史宪之",
+        "史阁部"
+      ],
+      "personal_skills": [
+        "清正勤勉",
+        "招抚流民",
+        "守城死节"
+      ],
+      "loyalty": 90,
+      "ability": 74,
+      "integrity": 93,
+      "courage": 90,
+      "style": "忠贞刚烈",
+      "birth_year": 1601,
+      "historical_death_year": 0,
+      "historical_death_month": 0,
+      "debut_year": 1635,
+      "debut_month": 1,
+      "status": "offstage"
+    },
+    {
+      "name": "孙传庭",
+      "office": "吏部验封司郎中",
+      "office_type": "吏部",
+      "faction": "皇党",
+      "aliases": [
+        "孙传庭",
+        "孙白谷",
+        "孙督师"
+      ],
+      "personal_skills": [
+        "练秦兵",
+        "剿抚流寇",
+        "刚愎知兵"
+      ],
+      "loyalty": 76,
+      "ability": 84,
+      "integrity": 78,
+      "courage": 85,
+      "style": "刚毅自负",
+      "birth_year": 1593,
+      "historical_death_year": 0,
+      "historical_death_month": 0,
+      "debut_year": 1636,
+      "debut_month": 3,
+      "status": "offstage"
     }
   ]
 }

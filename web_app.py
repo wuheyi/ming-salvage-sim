@@ -128,6 +128,22 @@ class WebGame:
             raise HTTPException(status_code=404, detail="存档不存在。")
         os.remove(target)
 
+    def reset_game(self) -> None:
+        """全清主 DB：关连接 → 删 sqlite 主/wal/shm → 重建空 session。
+        存档目录不动。"""
+        try:
+            self.session.close()
+        except Exception:
+            pass
+        for suffix in ("", "-wal", "-shm"):
+            target = self.db_path + suffix
+            if os.path.isfile(target):
+                try:
+                    os.remove(target)
+                except OSError:
+                    pass
+        self._rebuild_session(self.session.llm_config)
+
     def load_save(self, name: str) -> None:
         """从存档热替换主 DB：备份当前 → 拷源到主 DB → 重建 session。"""
         safe = self._safe_save_name(name)
@@ -391,12 +407,68 @@ class WebGame:
                 ],
             },
         }
+        # 建筑产出/维护并入内库固定栏（按当前 condition 折算的月预算）
+        building_rows = self.db.conn.execute(
+            "SELECT name, condition, maintenance, output_metric, output_amount FROM buildings"
+        ).fetchall()
+        bld_produce = 0
+        bld_maintain = 0
+        for br in building_rows:
+            cond = max(0, min(100, int(br["condition"])))
+            if br["output_metric"] in ("国库", "内库") and br["output_amount"]:
+                bld_produce += round(int(br["output_amount"]) * cond / 100)
+            bld_maintain += max(0, int(br["maintenance"]))
+        if bld_produce > 0:
+            budget["内库"]["income"].append(
+                {"name": "建筑产出", "amount": int(bld_produce), "note": "皇庄/铸炮/市舶等月产出"}
+            )
+        if bld_maintain > 0:
+            budget["内库"]["expense"].append(
+                {"name": "建筑维护", "amount": int(bld_maintain), "note": "各建筑月维护合计"}
+            )
         for account in budget.values():
             income_total = sum(int(item["amount"]) for item in account["income"])
             expense_total = sum(int(item["amount"]) for item in account["expense"])
             account["income_total"] = income_total
             account["expense_total"] = expense_total
             account["net"] = income_total - expense_total
+        # 本月入账（上月末结算）：上月末 LLM 推演 + 固定财政 tick 落的 ledger
+        # 时序上 state.turn 在结算末尾 +1 进入新月，所以"本月可见的入账"是 cur_turn - 1 的 ledger。
+        # 语义对齐玩家直觉："上月末抄家/清丈的钱，算这个月的收入"。
+        # 过滤掉固定收支（已在上方"固定收入/固定支出"展示），只列一次性流水
+        # （清丈追缴、抄家、赈济临支、亏空压力等 LLM 推演产物）。
+        FIXED_CATEGORIES = {
+            # 国库固定
+            "田赋", "辽饷", "盐税", "商税",
+            "各军军饷", "宗室禄米", "百官俸禄", "工部", "赈灾备用", "九边补给",
+            # 内库固定
+            "皇庄", "织造", "矿税",
+            "宫廷开支", "内廷俸禄", "妃嫔供奉",
+            # 建筑（每月固定 tick）
+            "建筑产出", "建筑维护",
+            # 开局初始账册
+            "期初",
+        }
+        cur_turn = int(self.state.turn)
+        rows = self.db.conn.execute(
+            "SELECT id, account, delta, balance_after, category, reason "
+            "FROM economy_ledger WHERE turn = ? ORDER BY id",
+            (cur_turn - 1,),
+        ).fetchall()
+        for name, account in budget.items():
+            movements = [
+                {
+                    "delta": int(r["delta"]),
+                    "balance_after": int(r["balance_after"]),
+                    "category": str(r["category"] or ""),
+                    "reason": str(r["reason"] or ""),
+                }
+                for r in rows
+                if str(r["account"]) == name
+                and str(r["category"] or "") not in FIXED_CATEGORIES
+            ]
+            account["movements"] = movements
+            account["movements_total"] = sum(m["delta"] for m in movements)
         return budget
 
     def state_payload(self) -> Dict[str, Any]:
@@ -434,6 +506,7 @@ class WebGame:
         court_action: str = "",
         next_minister: str = "",
         proposed_directive: Optional[Dict[str, Any]] = None,
+        appointed_minister: str = "",
     ) -> Dict[str, Any]:
         character = self.content.characters[minister_name]
         self.chat_history[minister_name].append({"role": "minister", "content": answer})
@@ -445,6 +518,7 @@ class WebGame:
             "court_action": court_action,
             "next_minister": next_minister,
             "proposed_directive": proposed_directive,
+            "appointed_minister": appointed_minister,
             "directives": [self.directive_payload(row) for row in self.directive_rows()],
             "suggestions": self.suggestions_for(character),
         }
@@ -465,7 +539,7 @@ class WebGame:
         return self._chat_payload(
             minister_name, result.answer,
             court_action=result.court_action, next_minister=result.next_minister,
-            proposed_directive=proposed,
+            proposed_directive=proposed, appointed_minister=result.appointed_minister,
         )
 
     def chat_stream(self, minister_name: str, message: str) -> Iterator[Dict[str, Any]]:
@@ -499,8 +573,9 @@ class WebGame:
                 answer = extract_agent_text(run_output)
             if not answer:
                 raise LLMUnavailable("LLM 调用失败：流式回复为空。")
-            # 截 propose_directive：入 pending
+            # 截 propose_directive：入 pending；截 propose_appointment：吏部铨选建档
             proposed = None
+            appointed = ""
             if run_output is not None:
                 for tool_exec in getattr(run_output, "tools", None) or []:
                     res = str(getattr(tool_exec, "result", "") or "")
@@ -516,7 +591,13 @@ class WebGame:
                             )
                             proposed = {"id": did, "text": draft_text, "status": "pending",
                                         "notes": f"由{character.name}拟旨入档"}
-            payload = self._chat_payload(minister_name, answer, proposed_directive=proposed)
+                    elif res.startswith("__pending_appointment__"):
+                        payload_json = res.removeprefix("__pending_appointment__").strip()
+                        appointed = self.session._apply_appointment(payload_json, character)
+            payload = self._chat_payload(
+                minister_name, answer, proposed_directive=proposed,
+                appointed_minister=appointed,
+            )
             yield {"type": "done", "payload": payload}
         except Exception as error:
             yield {"type": "error", "message": str(error)}
@@ -616,7 +697,12 @@ async def api_buildings(region_id: str = "") -> Dict[str, Any]:
 
 @app.get("/api/ministers")
 async def api_ministers(group: str = "全部") -> Dict[str, Any]:
-    ministers = [web_game.public_character(c) for c in web_game.content.characters.values()]
+    # 只列 active：offstage 未登场、dead/dismissed/imprisoned/exiled/retired 不能召见。
+    ministers = [
+        web_game.public_character(c)
+        for c in web_game.content.characters.values()
+        if web_game.db.get_character_status(c.name)[0] == "active"
+    ]
     if group == "内阁":
         ministers = [item for item in ministers if item["office_type"] == "内阁"]
     elif group == "六部":
@@ -640,10 +726,25 @@ async def api_remove_favorite(minister_name: str) -> Dict[str, Any]:
     return {"favorites": sorted(web_game.favorites)}
 
 
-@app.get("/api/ministers/{minister_name}/chat")
-async def api_chat_history(minister_name: str) -> Dict[str, Any]:
+_STATUS_LABEL_WEB = {
+    "offstage": "尚未登场", "dead": "已殁", "dismissed": "已罢黜",
+    "imprisoned": "下狱", "exiled": "流放", "retired": "致仕",
+}
+
+
+def _require_active_minister(minister_name: str) -> None:
     if minister_name not in web_game.content.characters:
         raise HTTPException(status_code=404, detail=f"未找到大臣：{minister_name}")
+    status, reason = web_game.db.get_character_status(minister_name)
+    if status != "active":
+        label = _STATUS_LABEL_WEB.get(status, status)
+        detail = f"{minister_name}已{label}，无法召见。" + (reason or "")
+        raise HTTPException(status_code=409, detail=detail.strip())
+
+
+@app.get("/api/ministers/{minister_name}/chat")
+async def api_chat_history(minister_name: str) -> Dict[str, Any]:
+    _require_active_minister(minister_name)
     character = web_game.content.characters[minister_name]
     return {
         "minister": web_game.public_character(character),
@@ -654,11 +755,13 @@ async def api_chat_history(minister_name: str) -> Dict[str, Any]:
 
 @app.post("/api/ministers/{minister_name}/chat")
 async def api_chat(minister_name: str, request: ChatRequest) -> Dict[str, Any]:
+    _require_active_minister(minister_name)
     return web_game.chat(minister_name, request.message)
 
 
 @app.post("/api/ministers/{minister_name}/chat/stream")
 async def api_chat_stream(minister_name: str, request: ChatRequest) -> StreamingResponse:
+    _require_active_minister(minister_name)
     async def generate() -> AsyncIterator[str]:
         for item in web_game.chat_stream(minister_name, request.message):
             item_type = str(item.get("type", "message"))
@@ -820,6 +923,13 @@ async def api_delete_save(name: str) -> Dict[str, Any]:
 @app.post("/api/saves/{name}/load")
 async def api_load_save(name: str) -> Dict[str, Any]:
     web_game.load_save(name)
+    return {"state": web_game.state_payload()}
+
+
+@app.post("/api/game/reset")
+async def api_reset_game() -> Dict[str, Any]:
+    """清空主 DB 重开新局。存档目录保留。"""
+    web_game.reset_game()
     return {"state": web_game.state_payload()}
 
 

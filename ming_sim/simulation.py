@@ -33,6 +33,7 @@ def simulate_season_with_agno(
     previous_narrative: str,
     fixed_flows: Optional[List[Dict[str, object]]] = None,
     deaths_this_turn: Optional[List[Dict[str, str]]] = None,
+    debuts_this_turn: Optional[List[Dict[str, str]]] = None,
     on_thinking: Optional[Callable[[str], None]] = None,
     on_text: Optional[Callable[[str], None]] = None,
 ) -> str:
@@ -92,6 +93,7 @@ def simulate_season_with_agno(
         "buildings": db.building_payload(),
         "fixed_flows": fixed_flows or [],
         "deaths_this_turn": deaths_this_turn or [],
+        "debuts_this_turn": debuts_this_turn or [],
         "data_note": (
             "以上为本月全量盘面：regions/armies 是 header+二维数组（cols 列名 + rows 数据），"
             "buildings 是建筑全表。所有地区/军队/建筑/派系/阶级/外部势力数值均已在册，"

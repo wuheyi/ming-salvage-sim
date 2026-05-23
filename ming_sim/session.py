@@ -59,6 +59,7 @@ class ChatTurnResult:
     court_action: str = ""   # "" | dismiss | summon | court_break | handled
     next_minister: str = ""
     proposed_directive: Optional[DirectiveView] = None
+    appointed_minister: str = ""   # 吏部本轮铨选新任的人物姓名（已可召见）
     refresh_ministers: List[str] = field(default_factory=list)
 
 
@@ -103,6 +104,7 @@ class GameSession:
         self.agno_db = create_agno_db(db_path)
         self.state = self.db.load_state(start_ym)
         self.deaths_this_turn: List[Dict[str, str]] = []
+        self.debuts_this_turn: List[Dict[str, str]] = []
         self.previous_summary = ""
         self.registry: Optional[MinisterRegistry] = None
         self.last_decree = ""
@@ -115,6 +117,7 @@ class GameSession:
         """加载/刷新本回合：历史卒、上回合奏报、重建 registry。幂等。"""
         self.state = self.db.load_state()
         self.deaths_this_turn = self.db.apply_historical_deaths(self.state)
+        self.debuts_this_turn = self.db.apply_historical_debuts(self.state)
         self.previous_summary = self.db.previous_turn_summary(self.state) or ""
         context = CourtContext(state=self.state, db=self.db, previous_summary=self.previous_summary)
         self.registry = MinisterRegistry(self.llm_config, self.agno_db, context)
@@ -152,13 +155,17 @@ class GameSession:
     # ── 召见阶段 ──────────────────────────────────────────────────────────
 
     def list_ministers(self) -> List[MinisterView]:
-        return [
-            MinisterView(
+        # 状态以 DB 为准（历史卒/登场/罢黜均落 DB）；offstage 未登场者不进名单。
+        views: List[MinisterView] = []
+        for c in self.content.characters.values():
+            status, _ = self.db.get_character_status(c.name)
+            if status == "offstage":
+                continue
+            views.append(MinisterView(
                 name=c.name, office=c.office, office_type=c.office_type,
-                faction=c.faction, status=c.status,
-            )
-            for c in self.content.characters.values()
-        ]
+                faction=c.faction, status=status,
+            ))
+        return views
 
     def _character(self, name: str) -> Character:
         return character_from_name(name)
@@ -204,7 +211,44 @@ class GameSession:
                         id=directive_id, text=draft_text, status="pending",
                         source="大臣拟旨", notes=f"由{character.name}拟旨入档",
                     )
+            elif tool_name == "propose_appointment" or tool_result.startswith("__pending_appointment__"):
+                payload = tool_result.removeprefix("__pending_appointment__").strip()
+                appointed = self._apply_appointment(payload, character)
+                if appointed:
+                    result.appointed_minister = appointed
+                    result.refresh_ministers.append(appointed)
         return result
+
+    def _apply_appointment(self, payload: str, appointer: Character) -> str:
+        """吏部 propose_appointment 落地：建档入库 + 注册 Agent，本回合即可召见。
+        吏部尚书 LLM 已判过史实合理性；代码端只做姓名查重与字段兜底，不做历史校验。
+        返回新任者姓名；payload 不合法或重名则返回空串。"""
+        import json as _json
+        try:
+            data = _json.loads(payload) if payload else {}
+        except (ValueError, TypeError):
+            return ""
+        name = str(data.get("name") or "").strip()
+        office = str(data.get("office") or "").strip()
+        if not name or not office:
+            return ""
+        if name in self.content.characters:
+            return ""  # 已在册（含 offstage）——不重复建档
+        faction = str(data.get("faction") or "中立").strip()
+        if faction not in self.content.factions:
+            faction = "中立"
+        # 新任者属性走中庸默认值；具体表现由后续奏对与推演 agent 决定。
+        character = Character(
+            name=name, office=office, office_type="待铨", faction=faction,
+            aliases=[], personal_skills=[],
+            loyalty=55, ability=60, integrity=55, courage=55,
+            style="新任未详", status="active",
+        )
+        self.content.characters[name] = character
+        self.db.add_character(self.state, character)
+        if self.registry is not None:
+            self.registry.register(character)
+        return name
 
     # ── 拟旨 / 草案阶段 ───────────────────────────────────────────────────
 
@@ -275,6 +319,7 @@ class GameSession:
         report = resolve_directives(
             self.state, self.db, self.agno_db, self.llm_config,
             directives, decree_text, deaths_this_turn=self.deaths_this_turn,
+            debuts_this_turn=self.debuts_this_turn,
             on_event=on_event,
         )
         self.last_report = report

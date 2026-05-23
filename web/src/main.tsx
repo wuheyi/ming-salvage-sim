@@ -8,6 +8,7 @@ import {
   Loader2,
   MapPinned,
   Menu,
+  RotateCcw,
   Save,
   Send,
   Settings,
@@ -178,6 +179,13 @@ type BudgetItem = {
   note: string;
 };
 
+type BudgetMovement = {
+  delta: number;
+  balance_after: number;
+  category: string;
+  reason: string;
+};
+
 type BudgetAccount = {
   balance: number;
   income: BudgetItem[];
@@ -185,6 +193,8 @@ type BudgetAccount = {
   income_total: number;
   expense_total: number;
   net: number;
+  movements: BudgetMovement[];
+  movements_total: number;
 };
 
 type Budget = Record<"国库" | "内库", BudgetAccount>;
@@ -1114,7 +1124,40 @@ function BudgetHover({ accountName, budget }: { accountName: "国库" | "内库"
         </span>
         <BudgetList title="固定收入" items={budget.income} />
         <BudgetList title="固定支出" items={budget.expense} expense />
+        <BudgetMovementsList movements={budget.movements} total={budget.movements_total} />
       </span>
+    </span>
+  );
+}
+
+function BudgetMovementsList({ movements, total }: { movements: BudgetMovement[]; total: number }) {
+  if (!movements.length) {
+    return (
+      <span className="budget-list">
+        <span className="budget-list-title">本月一次性入账（上月末结算）</span>
+        <span className="budget-row"><span><b>暂无</b><small>上月末未结算入出</small></span></span>
+      </span>
+    );
+  }
+  return (
+    <span className="budget-list">
+      <span className="budget-list-title">
+        本月一次性入账（上月末结算）
+        <small className={total >= 0 ? "income" : "expense"}>　合计 {formatSignedMoney(total)}</small>
+      </span>
+      {movements.map((m, idx) => {
+        const sign = m.delta >= 0 ? "+" : "-";
+        const cls = m.delta >= 0 ? "income" : "expense";
+        return (
+          <span className="budget-row" key={`mv-${idx}`}>
+            <span>
+              <b>{m.category || "—"}</b>
+              <small>{m.reason}</small>
+            </span>
+            <strong className={cls}>{sign}{formatMoney(Math.abs(m.delta))}</strong>
+          </span>
+        );
+      })}
     </span>
   );
 }
@@ -1440,7 +1483,7 @@ function HistoryModal({ onClose }: { onClose: () => void }) {
 }
 
 function GameMenuModal({ onClose, onAfterLoad }: { onClose: () => void; onAfterLoad: () => void }) {
-  const [tab, setTab] = React.useState<"save" | "load" | "llm">("save");
+  const [tab, setTab] = React.useState<"save" | "load" | "llm" | "reset">("save");
   React.useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -1469,11 +1512,15 @@ function GameMenuModal({ onClose, onAfterLoad }: { onClose: () => void; onAfterL
             <button className={tab === "llm" ? "active" : ""} onClick={() => setTab("llm")}>
               <Settings size={14} /> LLM 配置
             </button>
+            <button className={tab === "reset" ? "active" : ""} onClick={() => setTab("reset")}>
+              <RotateCcw size={14} /> 重开新局
+            </button>
           </nav>
           <div className="game-menu-body">
             {tab === "save" ? <SaveTab /> : null}
             {tab === "load" ? <LoadTab onAfterLoad={onAfterLoad} /> : null}
             {tab === "llm" ? <LLMConfigTab /> : null}
+            {tab === "reset" ? <ResetTab onAfterReset={onAfterLoad} /> : null}
           </div>
         </div>
       </div>
@@ -1583,6 +1630,52 @@ function LoadTab({ onAfterLoad }: { onAfterLoad: () => void }) {
       <p className="menu-hint">选一份覆盖回主 DB。加载后页面会自动重新载入。</p>
       {err ? <div className="menu-error">{err}</div> : null}
       <SavesList saves={saves} onRefresh={refresh} action={onLoad} busy={busy} />
+    </section>
+  );
+}
+
+function ResetTab({ onAfterReset }: { onAfterReset: () => void }) {
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const [confirmText, setConfirmText] = React.useState("");
+
+  const canReset = confirmText.trim() === "重开";
+
+  const onReset = async () => {
+    if (!canReset) return;
+    if (!window.confirm("确定重开新局？当前局所有数据将被永久清空（存档目录不动）。")) return;
+    setBusy(true);
+    setErr("");
+    try {
+      await api("/api/game/reset", { method: "POST" });
+      onAfterReset();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="menu-section">
+      <h3>重开新局</h3>
+      <p className="menu-hint">
+        清空主 DB（聊天记录、回合奏报、局势、ledger 全清），重置到天启七年十二月开局。
+        <b>不可撤销</b>。要保留当前局，先到「保存存档」存一份。
+      </p>
+      <p className="menu-hint">输入「重开」二字以解锁按钮：</p>
+      <div className="menu-row">
+        <input
+          className="menu-input"
+          placeholder="输入：重开"
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          disabled={busy}
+        />
+        <button className="menu-btn danger" onClick={onReset} disabled={!canReset || busy}>
+          {busy ? <Loader2 size={14} className="spin" /> : <RotateCcw size={14} />} 重开新局
+        </button>
+      </div>
+      {err ? <div className="menu-error">{err}</div> : null}
     </section>
   );
 }

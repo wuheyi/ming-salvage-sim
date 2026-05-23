@@ -76,6 +76,8 @@ class GameDB:
                 birth_year INTEGER NOT NULL DEFAULT 0,
                 historical_death_year INTEGER NOT NULL DEFAULT 0,
                 historical_death_month INTEGER NOT NULL DEFAULT 0,
+                debut_year INTEGER NOT NULL DEFAULT 0,
+                debut_month INTEGER NOT NULL DEFAULT 0,
                 status TEXT NOT NULL DEFAULT 'active',
                 status_reason TEXT NOT NULL DEFAULT '',
                 status_changed_turn INTEGER NOT NULL DEFAULT 0
@@ -455,6 +457,8 @@ class GameDB:
         self.ensure_column("characters", "birth_year", "INTEGER NOT NULL DEFAULT 0")
         self.ensure_column("characters", "historical_death_year", "INTEGER NOT NULL DEFAULT 0")
         self.ensure_column("characters", "historical_death_month", "INTEGER NOT NULL DEFAULT 0")
+        self.ensure_column("characters", "debut_year", "INTEGER NOT NULL DEFAULT 0")
+        self.ensure_column("characters", "debut_month", "INTEGER NOT NULL DEFAULT 0")
         self.ensure_column("characters", "status", "TEXT NOT NULL DEFAULT 'active'")
         self.ensure_column("characters", "status_reason", "TEXT NOT NULL DEFAULT ''")
         self.ensure_column("characters", "status_changed_turn", "INTEGER NOT NULL DEFAULT 0")
@@ -546,8 +550,9 @@ class GameDB:
                 """
                 INSERT OR REPLACE INTO characters
                 (name, office, office_type, faction, personal_skills, loyalty, ability, integrity, courage, style,
-                 birth_year, historical_death_year, historical_death_month, status, status_reason, status_changed_turn)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 birth_year, historical_death_year, historical_death_month, debut_year, debut_month,
+                 status, status_reason, status_changed_turn)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     character.name,
@@ -563,6 +568,8 @@ class GameDB:
                     character.birth_year,
                     character.historical_death_year,
                     character.historical_death_month,
+                    character.debut_year,
+                    character.debut_month,
                     keep_status,
                     keep_reason,
                     keep_turn,
@@ -887,8 +894,8 @@ class GameDB:
         status: str,
         reason: str = "",
     ) -> None:
-        """改人物状态：active/dismissed/imprisoned/exiled/retired/dead。"""
-        valid = {"active", "dismissed", "imprisoned", "exiled", "retired", "dead"}
+        """改人物状态：active/offstage/dismissed/imprisoned/exiled/retired/dead。"""
+        valid = {"active", "offstage", "dismissed", "imprisoned", "exiled", "retired", "dead"}
         if status not in valid:
             raise ValueError(f"character status 非法：{status}")
         self.conn.execute(
@@ -932,6 +939,84 @@ class GameDB:
                 "faction": r["faction"] or "",
             })
         return died
+
+    def apply_historical_debuts(self, state: GameState) -> List[Dict[str, str]]:
+        """月初 tick：offstage 人物到历史登场年月，自动转 active 并发"起用"讯息。
+        debut_year=0 视为开局即在场（不会处于 offstage）。
+        返回 [{name, office, faction}] 喂给 simulator 当月上下文，由 LLM 写进邸报。
+        """
+        rows = self.conn.execute(
+            """SELECT name, office, faction, debut_year, debut_month
+               FROM characters
+               WHERE status = 'offstage' AND debut_year > 0"""
+        ).fetchall()
+        debuted: List[Dict[str, str]] = []
+        for r in rows:
+            year = int(r["debut_year"])
+            month = int(r["debut_month"] or 0)
+            triggered = state.year > year or (
+                state.year == year and (month == 0 or state.period >= month)
+            )
+            if not triggered:
+                continue
+            name = r["name"]
+            self.set_character_status(state, name, "active", f"历史登场 {year}年{month or '?'}月")
+            debuted.append({
+                "name": name,
+                "office": r["office"] or "重臣",
+                "faction": r["faction"] or "",
+            })
+        return debuted
+
+    def add_character(self, state: GameState, character: "Character") -> None:
+        """运行时新建人物（吏部任命/皇帝点名）。已存在同名则不动，避免覆盖既有状态。"""
+        existing = self.conn.execute(
+            "SELECT name FROM characters WHERE name=?", (character.name,)
+        ).fetchone()
+        if existing is not None:
+            return
+        self.conn.execute(
+            """
+            INSERT INTO characters
+            (name, office, office_type, faction, personal_skills, loyalty, ability, integrity, courage, style,
+             birth_year, historical_death_year, historical_death_month, debut_year, debut_month,
+             status, status_reason, status_changed_turn)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                character.name,
+                character.office,
+                character.office_type,
+                character.faction,
+                json.dumps(character.personal_skills + character.aliases, ensure_ascii=False),
+                character.loyalty,
+                character.ability,
+                character.integrity,
+                character.courage,
+                character.style,
+                character.birth_year,
+                character.historical_death_year,
+                character.historical_death_month,
+                character.debut_year,
+                character.debut_month,
+                character.status,
+                "吏部铨选任命",
+                state.turn,
+            ),
+        )
+        self.conn.execute(
+            """
+            INSERT INTO character_offices (character_name, office_title, office_type, source)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(character_name) DO UPDATE SET
+                office_title = excluded.office_title,
+                office_type = excluded.office_type,
+                source = excluded.source,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (character.name, character.office, character.office_type, "吏部任命"),
+        )
+        self.conn.commit()
 
     def record_economy_moves(
         self,

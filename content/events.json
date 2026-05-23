@@ -1,21 +1,5 @@
 [
   {
-    "id": "wei",
-    "title": "魏忠贤请退",
-    "kind": "朝政",
-    "summary": "魏忠贤势力震动，请求辞去权柄。清流要求尽快清算，内廷旧人则惶惶不安。",
-    "urgency": 92,
-    "severity": 72,
-    "credibility": 78,
-    "interests": ["东林清流", "阉党残余", "内廷"],
-    "audiences": ["王承恩", "韩爌", "魏忠贤"],
-    "resolve_condition": "魏忠贤被赐死/流戍或安置乡里且家产抄没入库；田尔耕、许显纯等核心党羽下狱定罪；厂卫旧档移交完成",
-    "fail_condition": "魏忠贤翻供逃脱、复出夺权或借旧党反扑致内阁/司礼监失控；东林反弹激成大狱",
-    "trigger_year": 1627,
-    "trigger_month": 12,
-    "precondition": "历史既定：崇祯即位即面对魏忠贤交权之局"
-  },
-  {
     "id": "mao_wenlong",
     "title": "袁崇焕斩毛文龙",
     "kind": "朝政",
