@@ -1607,10 +1607,41 @@ select:focus-visible {
 }
 
 .minister-side {
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   overflow-y: auto;
+  min-height: 0;
+}
+
+.chat-portrait-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.chat-portrait-wrap .minister-card-portrait {
+  width: 100%;
+  height: 100%;
+  flex: 1 1 auto;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: 10px;
+}
+
+.chat-portrait-wrap .minister-card-portrait-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4rem;
+  color: rgba(120, 80, 40, 0.45);
+  background: rgba(155, 120, 80, 0.12);
+  border-radius: 10px;
 }
 
 .minister-profile {

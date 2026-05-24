@@ -470,6 +470,7 @@ function App() {
     return raw ? Number(raw) : -1;
   });
   const [closedModal, setClosedModal] = React.useState<ClosedIssue[]>([]);
+  const [gazetteShown, setGazetteShown] = React.useState<number>(-1);
 
   const loadState = React.useCallback(async () => {
     const data = await api<GameState>("/api/game/state");
@@ -513,6 +514,20 @@ function App() {
       sessionStorage.setItem("closedShownTurn", String(currentTurn));
     }
   }, [state, closedShown]);
+
+  // 每次进入页面/换回合都弹上回合邸报。不持久化记录——刷新即重新弹。
+  // 同一加载周期内同一回合不重复弹（gazetteShown 用 React state，刷新后回到 -1）。
+  React.useEffect(() => {
+    if (!state) return;
+    const currentTurn = state.turn.turn;
+    const summary = (state.previous_summary || "").trim();
+    if (!summary) return;
+    if (summary.startsWith("登基伊始")) return;
+    if (currentTurn === gazetteShown) return;
+    setReport(summary);
+    setActiveModal("report");
+    setGazetteShown(currentTurn);
+  }, [state, gazetteShown]);
 
   React.useEffect(() => {
     if (!selectedMinister) {
@@ -883,6 +898,7 @@ function App() {
         <FullscreenModal title={`召对：${activeMinister.name}`} subtitle={activeMinister.office} bgClass="modal-bg-chat" onClose={guardClose(() => setActiveModal("none"))}>
           <ChatModal
             minister={activeMinister}
+            portraitPrefix={(state.consorts || []).some((c) => c.name === activeMinister.name) ? "consort_" : "minister_"}
             chat={chat}
             suggestions={suggestions}
             pendingUserMessage={pendingUserMessage}
@@ -2472,6 +2488,7 @@ function IssueGroup({ title, issues }: { title: string; issues: Issue[] }) {
 
 function ChatModal({
   minister,
+  portraitPrefix,
   chat,
   suggestions,
   pendingUserMessage,
@@ -2489,6 +2506,7 @@ function ChatModal({
   onClose,
 }: {
   minister: Minister;
+  portraitPrefix: string;
   chat: ChatMessage[];
   suggestions: Suggestion[];
   pendingUserMessage: string;
@@ -2505,6 +2523,13 @@ function ChatModal({
   onOpenEdict: () => void;
   onClose: () => void;
 }) {
+  const isCustom = minister.portrait_id?.startsWith("custom:");
+  const portraitPrimary = isCustom
+    ? `/portraits/custom/${encodeURIComponent(minister.name)}?t=${cacheBust(minister.portrait_id!)}`
+    : `/portraits/${portraitPrefix}${minister.id ?? minister.name}.png`;
+  const portraitFallback = !isCustom && minister.portrait_id
+    ? `/portraits/${minister.portrait_id}.png`
+    : undefined;
   const chatLogRef = React.useRef<HTMLDivElement | null>(null);
   const inputRef = React.useRef<HTMLTextAreaElement | null>(null);
   const displayMessages: ChatDisplayMessage[] = [...chat];
@@ -2554,17 +2579,13 @@ function ChatModal({
           </button>
         </div>
         <p className="profile-copy">{minister.summary}</p>
-        <div className="skill-strip" aria-label="可用技能">
-          {minister.skills.slice(0, 8).map((skill) => (
-            <span key={skill.id} title={`${skill.description} 来源：${skill.sources.join("/")}`}>
-              {skill.name}
-            </span>
-          ))}
-        </div>
         <button className="secondary-action" onClick={onOpenEdict}>
           <ScrollText size={15} />
           转入诏书草案
         </button>
+        <div className="chat-portrait-wrap">
+          <MinisterPortrait primary={portraitPrimary} fallback={portraitFallback} name={minister.name} />
+        </div>
       </aside>
 
       <section className="modal-pane chat-main">
