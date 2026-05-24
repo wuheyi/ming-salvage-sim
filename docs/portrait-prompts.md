@@ -544,3 +544,110 @@ Ciyun, Ming dynasty imperial wet nurse, warm maternal middle-aged woman, plain h
 ```
 Xiuwen, Ming dynasty female court historian-secretary, intellectual serious woman, structured dark court robe with subtle rank embroidery, hair in formal official bun, reading glasses on nose, writing brush in hand, large open historical records scroll, scholarly absorbed expression, rare female official dignity. Ming dynasty female scholar portrait, standing scholarly pose, Tang dynasty female official painting style, dignified classic colors, white background, vertical composition 3:4, female official scholarly robe, intellectual serious expression, high detail, masterwork quality
 ```
+
+---
+
+## 后宫立绘·新批（现代审美·古风混搭）
+
+> **调性**：保留明制汉服骨架，但脸型/妆容/气质走现代审美——精致五官、自然妆感、清爽不浮夸、高颜值。画风偏唯美插画 / 半写实游戏 CG，弱化古画质感。
+>
+> **现代古风风格基底**（本批立绘末尾统一加，替换旧的工笔/水墨尾巴）：
+> > beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless porcelain skin, elegant Ming dynasty hanfu, semi-realistic illustration style, soft cinematic lighting, ethereal beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+>
+> 文件命名沿用 `consort_<name>.png`。
+
+### 异域 / 番邦美人
+
+#### 蒙古郡主·其其格 `consort_qiqige.png`
+**画风：草原英气·现代古风**
+```
+Qiqige, Mongolian princess at Ming dynasty court, striking exotic beauty with high cheekbones and almond eyes, healthy sun-kissed skin, dark red and gold Mongolian-Ming fusion robe with fur trim, ornate steppe-style headdress with turquoise and coral, confident wild charm, faint freckles, athletic graceful figure. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless skin, semi-realistic illustration style, soft cinematic lighting, ethereal beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```
+
+#### 波斯商女·萨米拉 `consort_samira.png`
+**画风：异域浓彩·现代古风**
+```
+Samira, Persian merchant's daughter arriving at Ming dynasty court along the Silk Road, exotic Central-West Asian beauty, deep luminous eyes with long lashes, warm olive skin, layered teal and amber silk robe blending Persian textiles with Ming hanfu cut, gold coin headpiece and fine veil, mysterious alluring smile, graceful dancer's poise. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless skin, semi-realistic illustration style, soft cinematic lighting, ethereal beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```
+
+#### 朝鲜公主·昭仪 `consort_zhaoyi_korean.png`
+**画风：清丽柔美·现代古风**
+```
+Korean princess as tribute consort at Ming dynasty court, gentle refined Korean beauty, fair luminous skin, soft delicate features, white and pale-jade layered hanbok-influenced Ming court robe with subtle floral embroidery, simple elegant jeweled hairpin, demure graceful expression, serene modern beauty. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless porcelain skin, semi-realistic illustration style, soft cinematic lighting, ethereal beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```
+
+#### 满洲格格·东珠 `consort_dongzhu.png`
+**画风：英武明艳·现代古风**
+```
+Dongzhu, Manchu noblewoman captured and brought to Ming dynasty court, proud striking beauty, bright fierce eyes, fair skin with rosy cheeks, partially sinicized robe mixing Manchu riding dress with Ming court silk, distinctive Manchu hairstyle softened with pearl ornaments, defiant unbroken spirit, athletic elegant figure. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless skin, semi-realistic illustration style, soft cinematic lighting, ethereal beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```
+
+#### 南洋舶来·珍珠 `consort_zhenzhu.png`
+**画风：海岛风情·现代古风**
+```
+Zhenzhu, Southeast Asian beauty arrived at Ming dynasty court by southern sea trade, exotic island charm, warm golden-brown skin, large dark eyes, glossy black hair with fresh tropical flowers and pearl strands, sea-blue and coral robe blending Nanyang textiles with Ming hanfu, bright friendly smile, slender graceful figure. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless skin, semi-realistic illustration style, soft cinematic lighting, ethereal beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```
+
+### 才女 / 名媛
+
+#### 江南名妓·柳影 `consort_liuying.png`
+**画风：才情风流·现代古风**
+```
+Liuying, renowned Jiangnan courtesan-poetess at Ming dynasty court, breathtaking cultured beauty, intelligent expressive eyes, fair flawless skin, elegant pale-lavender silk robe with willow and orchid embroidery, hair half-up with jade and pearl pins, holding a folding fan with calligraphy, refined witty smile, captivating literary charisma. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless porcelain skin, semi-realistic illustration style, soft cinematic lighting, ethereal beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```
+
+#### 琴师·素弦 `consort_suxian.png`
+**画风：清雅文艺·现代古风**
+```
+Suxian, gifted guqin musician maiden at Ming dynasty court, serene artistic beauty, calm gentle eyes, delicate features, soft blue-grey flowing robe with cloud-pattern embroidery, simple wooden and jade hairpins, seated or standing beside a guqin, slender elegant fingers, tranquil absorbed expression, refined musical grace. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless porcelain skin, semi-realistic illustration style, soft cinematic lighting, ethereal beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```
+
+#### 才女画师·墨卿 `consort_moqing.png`
+**画风：洒脱灵动·现代古风**
+```
+Moqing, talented young female painter at Ming dynasty court, fresh artistic beauty, bright clever eyes, fair skin with a hint of ink smudge on cheek, practical elegant robe in soft green with sleeves rolled, hair loosely pinned with a paintbrush tucked in, holding a fine brush mid-stroke, lively creative free-spirited expression. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless skin, semi-realistic illustration style, soft cinematic lighting, ethereal beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```
+
+#### 棋待诏·清欢 `consort_qinghuan.png`
+**画风：冷静知性·现代古风**
+```
+Qinghuan, brilliant young weiqi (Go) master maiden serving Ming dynasty court, cool intelligent beauty, calm analytical eyes, porcelain skin, refined deep-indigo robe with subtle geometric embroidery, neat structured hair with a single silver pin, holding a go stone between slender fingers beside a board, composed strategic expression, quiet confident charm. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless porcelain skin, semi-realistic illustration style, soft cinematic lighting, ethereal beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```
+
+#### 茶道名媛·云栖 `consort_yunqi.png`
+**画风：温润恬静·现代古风**
+```
+Yunqi, elegant tea-ceremony lady from a scholarly family at Ming dynasty court, warm gentle beauty, soft kind eyes, fair smooth skin, warm-beige and soft-pink layered robe with plum-blossom embroidery, hair in a graceful low bun with a delicate flower hairpin, holding a celadon teacup, serene welcoming smile, refined gentle poise. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless porcelain skin, semi-realistic illustration style, soft cinematic lighting, ethereal beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```
+
+### 江湖 / 特殊身份
+
+#### 女侠·凌霜 `consort_lingshuang.png`
+**画风：飒爽英姿·现代古风**
+```
+Lingshuang, female martial artist brought to Ming dynasty court, stunning heroic beauty, sharp bright determined eyes, fair healthy skin, fitted dark-crimson martial robe with silver trim allowing free movement, high ponytail with a red ribbon, a slender sword at her side, confident agile stance, cool fearless charisma. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless skin, semi-realistic illustration style, soft cinematic lighting, ethereal beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```
+
+#### 女医·杏娘 `consort_xingniang.png`
+**画风：温柔聪慧·现代古风**
+```
+Xingniang, gifted young female physician at Ming dynasty court, gentle intelligent beauty, warm caring eyes, fair clean skin, practical soft-green robe with herb-pouch and embroidered medical motifs, neat low bun with a jade pin, holding a small medicine box or herb, kind focused healer's expression, reassuring graceful presence. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless porcelain skin, semi-realistic illustration style, soft cinematic lighting, ethereal beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```
+
+#### 道姑·清霄 `consort_qingxiao.png`
+**画风：仙气飘逸·现代古风**
+```
+Qingxiao, ethereal young Taoist priestess at Ming dynasty court, otherworldly serene beauty, luminous calm eyes, fair glowing skin, flowing white and pale-blue Taoist robes with cloud-and-crane motifs, simple wooden hairpin and a jade pendant, one hand forming a Taoist seal, transcendent dreamy expression, celestial graceful aura. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless porcelain skin, semi-realistic illustration style, soft cinematic lighting, ethereal misty beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```
+
+#### 东厂女探·夜阑 `consort_yelan.png`
+**画风：暗黑魅惑·现代古风**
+```
+Yelan, beautiful and dangerous Eastern Depot female spy disguised at Ming dynasty court, alluring sharp beauty, keen vigilant eyes, fair cool-toned skin, fitted dark-grey and black palace robe concealing thin blades, sleek high bun with a single dark hairpin, deceptively soft smile masking lethal intent, sleek dangerous elegance. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, subtle smoky makeup, flawless skin, semi-realistic illustration style, dramatic low-key cinematic lighting, alluring dangerous beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```
+
+#### 江湖卖艺·飞燕 `consort_feiyan.png`
+**画风：活泼灵动·现代古风**
+```
+Feiyan, lively young acrobat-performer discovered and brought to Ming dynasty court, bright energetic beauty, sparkling playful eyes, healthy glowing skin, vivid red and orange performance robe with flowing ribbons and silk sashes, hair in a high bun with colorful streamers, caught mid-dance in a graceful agile pose, joyful radiant smile, charismatic stage presence. beautiful young woman with modern aesthetic facial features, refined delicate features, large bright expressive eyes, natural light makeup, flawless skin, semi-realistic illustration style, soft cinematic lighting, vibrant energetic beauty, ArtStation trending quality, full-body standing portrait, white background, vertical composition 3:4, ultra high detail, masterwork quality
+```

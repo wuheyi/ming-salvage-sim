@@ -77,6 +77,7 @@ game UI background panel
 | `bg_edict.png` | 1600×1000 | 诏书草案弹窗（展开圣旨） | A Ming dynasty unrolled imperial edict scroll spread fully open horizontally, a thick carved dark-wood roller rod with brass dragon-head end caps at the LEFT edge and another identical roller rod at the RIGHT edge, wide aged cream silk-paper spread flat between the two rods, faint yellow brocade border along top and bottom |
 | `bg_court.png` | 512×1024 竖 | 朝堂抽屉 / 大臣选择 | A Ming dynasty court antechamber, red lacquer wall, carved wood lattice screen, a faint hanging scroll painting, soft warm light, vertical composition |
 | `bg_node.png` | 512×640 | 地图详情小面板（点省份/关隘节点浮出，显示地区数值+驻军） | A small Ming dynasty intelligence report card, a worn slip of memorial paper with a thin dark-wood frame, faint cinnabar seal stamp in one corner |
+| `bg_harem.png` | 1600×1000 | 后宫面板（妃嫔召见/册封弹窗） | A Ming dynasty imperial inner palace bedchamber interior, warm intimate boudoir, red lacquer and gold-carved canopy bed in the deep background softly blurred, gauze curtains, a low rosewood dressing table with a bronze mirror, hanging silk lanterns and faint incense smoke, embroidered phoenix screen, soft warm rosy lighting, deep and softly blurred, refined feminine elegance |
 | `bg_loading.png` | 1920×1080 | 加载页 | A Ming dynasty study desk scene, a closed imperial scroll, an ink stone and brush, a burning candle casting warm light, antique parchment atmosphere, quiet and atmospheric |
 
 **易错点**：
