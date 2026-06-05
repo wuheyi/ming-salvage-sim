@@ -2348,6 +2348,10 @@ class GameDB:
     def region_payload(self, limit: int | None = None, danger_order: bool = False) -> List[Dict[str, object]]:
         payload: List[Dict[str, object]] = []
         for row in self.region_rows(limit=limit, danger_order=danger_order):
+            try:
+                fiscal = json.loads(str(row["fiscal"] or "{}"))
+            except Exception:
+                fiscal = {}
             payload.append(
                 {
                     "id": row["id"],
@@ -2361,6 +2365,7 @@ class GameDB:
                     "registered_land": int(row["registered_land"]),
                     "hidden_land": int(row["hidden_land"]),
                     "tax_per_turn": int(row["tax_per_turn"]),
+                    "fiscal": fiscal,
                     "grain_security": int(row["grain_security"]),
                     "gentry_resistance": int(row["gentry_resistance"]),
                     "military_pressure": int(row["military_pressure"]),

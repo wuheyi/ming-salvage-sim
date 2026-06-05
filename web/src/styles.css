@@ -1,8 +1,24 @@
+@font-face {
+  font-family: "Source Han Serif SC Embedded";
+  src: url("/fonts/SourceHanSerifSC-Regular.otf") format("opentype");
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Source Han Serif SC Embedded";
+  src: url("/fonts/SourceHanSerifSC-Bold.otf") format("opentype");
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
   font-family:
-    "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
-  --font-brush: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+    "Source Han Serif SC Embedded", "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --font-brush: "Source Han Serif SC Embedded", "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
   font-size: 19px;
   line-height: 1.5;
   color: #1a1410;
@@ -6324,6 +6340,14 @@ button:disabled {
   flex-shrink: 0;
 }
 
+.right-drawer-region .right-drawer-detail {
+  flex: 1 1 0;
+  min-height: 0;
+  margin-bottom: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .right-drawer-detail-title {
   display: flex;
   align-items: center;
@@ -6507,36 +6531,42 @@ button:disabled {
   background: none;
   border: none;
   cursor: pointer;
-  color: #f6eccf;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85), 0 0 2px rgba(0, 0, 0, 0.7);
+  color: #1c130b;
+  text-shadow: 0 1px 0 rgba(255, 238, 190, 0.22);
 }
-.hud2-lab { font-size: 1.3cqh; color: #c9b48a; letter-spacing: 0.04em; }
-.hud2-val { font-size: 2.3cqh; font-weight: 700; color: #f6eccf; }
-.hud2-metric.warn .hud2-val { color: #f2c66a; }
-.hud2-metric.danger .hud2-val { color: #e07a55; }
-.hud2-metric.good .hud2-val { color: #8fd08a; }
+.hud2-lab { font-size: 1.45cqh; color: #21160d; letter-spacing: 0.04em; }
+.hud2-val { font-size: 2.25cqh; font-weight: 700; color: #110c07; }
+.hud2-metric.warn .hud2-val { color: #8e2f24; }
+.hud2-metric.danger .hud2-val { color: #8e2f24; }
+.hud2-metric.good .hud2-val { color: #2e7640; }
 
 /* 顶栏国库/内库复用 BudgetHover，去掉旧浮层底色 */
 .hud2-slot .budget-hover { overflow: visible; }
 .hud2-slot .status-money {
   background: none; border: none; box-shadow: none; padding: 0;
   display: inline-flex; flex-direction: column; align-items: center;
-  color: #f6eccf; cursor: pointer; font: inherit;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  color: #160f08; cursor: pointer; font: inherit;
+  text-shadow: 0 1px 0 rgba(255, 238, 190, 0.18);
 }
-.hud2-slot .status-money > span { font-size: 2.0cqh; font-weight: 700; }
-.hud2-slot .status-money small { font-size: 1.3cqh; }
+.hud2-slot .status-money > span { font-size: 2.05cqh; font-weight: 700; }
+.hud2-slot .status-money small { font-size: 1.35cqh; }
+.hud2-slot .status-money small.income { color: #2e7640; }
+.hud2-slot .status-money small.expense { color: #8e2f24; }
 
 /* 右侧竖排导航单字 */
 .hud2-nav {
-  font-size: 2.2cqh;
+  font-size: 1.75cqh;
   font-weight: 700;
-  color: #ecd9a8;
-  width: 3cqh;
-  height: 3cqh;
+  color: #f4ead0;
+  width: 7.2cqh;
+  height: 3.2cqh;
+  writing-mode: horizontal-tb;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-shadow: 0 2px 2px rgba(0, 0, 0, 0.88), 0 0 5px rgba(0, 0, 0, 0.72);
 }
-.hud2-nav.active { color: #fff0c0; text-shadow: 0 0 6px rgba(255, 210, 120, 0.8); }
-.hud2-nav:hover { color: #fff0c0; }
+.hud2-nav.active { color: #fff6dc; text-shadow: 0 0 7px rgba(255, 226, 145, 0.62), 0 2px 2px rgba(0, 0, 0, 0.8); }
+.hud2-nav:hover { color: #fff6dc; }
 
 /* 底部命令物件：扣图填进木牌坑位 */
 .hud2-cmd {
@@ -6586,12 +6616,12 @@ button:disabled {
   flex-direction: column;
   align-items: center;
   white-space: nowrap;
-  color: #f0e2c0;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+  color: #f1e3bd;
+  text-shadow: 0 2px 2px rgba(30, 14, 3, 0.75), 0 0 4px rgba(0, 0, 0, 0.45);
   cursor: pointer;
 }
-.hud2-cmd-caption b { font-size: 1.8cqh; }
-.hud2-cmd-caption small { font-size: 1.3cqh; color: #c9b48a; margin-top: 0.2em; }
+.hud2-cmd-caption b { font-size: 2.25cqh; }
+.hud2-cmd-caption small { font-size: 1.55cqh; color: #e4d2a7; margin-top: 0.12em; }
 
 /* HITL 月末重大抉择弹窗 */
 .decision-modal {

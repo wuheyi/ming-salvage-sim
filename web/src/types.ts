@@ -14,6 +14,10 @@ export type Region = {
   registered_land: number;
   hidden_land: number;
   tax_per_turn: number;
+  tax_actual?: number;
+  tax_efficiency?: number;
+  tax_breakdown?: Record<string, number>;
+  fiscal?: Record<string, number>;
   grain_security: number;
   gentry_resistance: number;
   military_pressure: number;

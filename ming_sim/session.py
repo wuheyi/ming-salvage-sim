@@ -387,6 +387,7 @@ class GameSession:
         self.temporary_characters: Dict[str, Character] = {}
         self.last_decree = ""
         self.last_report = ""
+        self._pending_cheat = ""  # HITL 暂停期间暂存的 cheat，phase2 取回
         self._begun = False
 
     # ── 回合生命周期 ──────────────────────────────────────────────────────
@@ -843,6 +844,9 @@ class GameSession:
         )
         if result.awaiting:
             # 决策点暂停：回合未推进，存 awaiting 态供刷新恢复；待 submit_decisions 续跑。
+            # 同进程内暂存 cheat，phase2 调用方未重传时取回——否则强制结算项会在
+            # 决策暂停后丢失（extractor 收不到既成事实）。刷新丢推演是既定行为，不落库。
+            self._pending_cheat = cheat_directive
             self.state.turn_phase = TurnPhase.AWAITING_DECISION.value
             self.db.save_state(self.state)
             return result
@@ -877,10 +881,13 @@ class GameSession:
                 (_json.dumps(choice, ensure_ascii=False), self.state.turn, idx),
             )
         self.db.conn.commit()
+        # caller 未重传 cheat 时，取回 phase1 暂存的（同进程内存）；用完即清。
+        effective_cheat = cheat_directive or getattr(self, "_pending_cheat", "")
+        self._pending_cheat = ""
         report = resolve_decisions_phase2(
             self.state, self.db, self.agno_db, self.llm_config,
             on_event=on_event, content=self.content, registry=self.registry,
-            cheat_directive=cheat_directive,
+            cheat_directive=effective_cheat,
         )
         self.last_report = report
         self.state.turn_phase = TurnPhase.ISSUED.value

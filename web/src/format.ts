@@ -16,6 +16,9 @@ export const formatSignedMoney = (value: number) => value < 0 ? `-${Math.abs(val
 
 export const monthlyAmount = (value: number) => Math.max(0, Math.round(value));
 
+export const regionMonthlyTax = (region: { tax_per_turn: number; tax_actual?: number }) =>
+  monthlyAmount(region.tax_actual ?? region.tax_per_turn);
+
 export const issueTone = (value: number) => {
   if (value <= 28) return "danger";
   if (value <= 58) return "warn";

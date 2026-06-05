@@ -42,7 +42,7 @@ from ming_sim.session import GameSession
 from ming_sim.session import AUTO_SAVE_PREFIX
 from ming_sim.skills import available_skill_ids, skill_display_name, skill_source_labels
 from ming_sim.context import match_minister_from_text
-from ming_sim.flows import compute_budget_lines
+from ming_sim.flows import calc_province_fiscal, compute_budget_lines
 from ming_sim.exceptions import LLMContractError  # noqa: F401  (保留：供错误处理)
 from ming_sim.models import Character, LLMConfig
 from ming_sim import steam_events
@@ -666,7 +666,26 @@ class WebGame:
         # 颁诏候选 = draft；UI 列表含 pending
         return self.db.list_directives(self.state, statuses=("pending", "draft"))
 
-    def map_nodes(self) -> List[Dict[str, Any]]:
+    def regions_payload(self) -> List[Dict[str, object]]:
+        regions = self.db.region_payload()
+        _, _, details = calc_province_fiscal(self.state, self.db)
+        by_region = {str(d["region_id"]): d for d in details}
+        for region in regions:
+            detail = by_region.get(str(region["id"]))
+            if not detail:
+                continue
+            region["tax_actual"] = int(detail["province_total"])
+            region["tax_efficiency"] = float(detail["efficiency"])
+            region["tax_breakdown"] = {
+                "田赋": int(detail["田赋"]),
+                "辽饷": int(detail["辽饷"]),
+                "盐税": int(detail["盐税"]),
+                "商税": int(detail["商税"]),
+                "皇庄": int(detail["皇庄"]),
+            }
+        return regions
+
+    def map_nodes(self, regions: Optional[List[Dict[str, object]]] = None) -> List[Dict[str, Any]]:
         region_positions = {
             "beizhili": (55.5, 41.2), "nanzhili": (70, 41), "shandong": (56.8, 47.9),
             "shanxi": (48.8, 45.2), "henan": (58, 46), "shaanxi": (51, 38),
@@ -687,7 +706,7 @@ class WebGame:
         }
         armies = self.db.army_payload(danger_order=True)
         nodes: List[Dict[str, Any]] = []
-        for region in self.db.region_payload():
+        for region in regions or self.regions_payload():
             x, y = region_positions.get(str(region["id"]), (50, 50))
             stationed = [a for a in armies if self._army_belongs_to_region(a, region)]
             buildings = self.db.building_payload(str(region["id"]))
@@ -930,6 +949,7 @@ class WebGame:
 
     def state_payload(self) -> Dict[str, Any]:
         directives = [self.directive_payload(row) for row in self.directive_rows()]
+        regions = self.regions_payload()
         return {
             "turn": {"year": self.state.year, "period": self.state.period,
                      "turn": self.state.turn, "phase": self.state.turn_phase},
@@ -947,9 +967,9 @@ class WebGame:
             "victory_status": self.session.victory(),
             "ending": self.ending_payload(),
             "events": [],
-            "regions": self.db.region_payload(),
+            "regions": regions,
             "armies": self.db.army_payload(),
-            "map_nodes": self.map_nodes(),
+            "map_nodes": self.map_nodes(regions),
             "ministers": [
                 self.public_character(c)
                 for c in self.content.characters.values()

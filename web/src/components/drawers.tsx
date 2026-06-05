@@ -1,7 +1,7 @@
 import React from "react";
 import { Crown, Landmark, MapPinned, ScrollText, Star, Swords, X } from "lucide-react";
 import { MinisterPortrait, PortraitUploadButton, RightDrawer, cacheBust, courtSlots, loadCourtPos, saveCourtPos, snapToSlot } from "./hud";
-import { formatMoney, formatSignedMoney } from "../format";
+import { formatMoney, formatSignedMoney, regionMonthlyTax } from "../format";
 import type { Army, Building, GameState, MapNode, Minister, Region } from "../types";
 
 export function MinisterCardList({
@@ -348,6 +348,8 @@ export function RegionDrawer({
     if (r.unrest >= 45) return "warn";
     return "";
   };
+  const fiscalValue = (r: Region, key: string) => Number(r.fiscal?.[key] ?? 0);
+  const taxPart = (r: Region, key: string) => Number(r.tax_breakdown?.[key] ?? 0);
   return (
     <RightDrawer open={open} onClose={onClose} title="省份" icon={<MapPinned size={17} />} extraClass="right-drawer-region">
       <div className="right-drawer-search">
@@ -362,7 +364,7 @@ export function RegionDrawer({
           >
             <span className="right-drawer-row-name">{r.name}</span>
             <span className="right-drawer-row-meta">
-              动乱{r.unrest} · 月税{r.tax_per_turn}万
+              动乱{r.unrest} · 实收{regionMonthlyTax(r)}万
             </span>
           </button>
         ))}
@@ -376,10 +378,19 @@ export function RegionDrawer({
           </div>
           <table className="intel-table">
             <tbody>
-              <tr><th>人口</th><td>{selected.population}万</td><th>田亩</th><td>{selected.registered_land}万亩</td></tr>
+              <tr><th>编号</th><td>{selected.id}</td><th>类型</th><td>{selected.kind}</td></tr>
+              <tr><th>归属</th><td>{selected.controlled_by || "ming"}</td><th>人口</th><td>{selected.population}万</td></tr>
               <tr><th>民心</th><td>{selected.public_support}</td><th>动乱</th><td>{selected.unrest}</td></tr>
-              <tr><th>粮食</th><td>{selected.grain_security}</td><th>月税</th><td>{selected.tax_per_turn}万</td></tr>
-              <tr><th>士绅阻力</th><td>{selected.gentry_resistance}</td><th>边防压力</th><td>{selected.military_pressure}</td></tr>
+              <tr><th>粮食</th><td>{selected.grain_security}万石</td><th>边防压力</th><td>{selected.military_pressure}</td></tr>
+              <tr><th>在册田亩</th><td>{selected.registered_land}万亩</td><th>隐田</th><td>{selected.hidden_land}万亩</td></tr>
+              <tr><th>官民田</th><td>{fiscalValue(selected, "guan_min_tian")}万亩</td><th>藩王庄田</th><td>{fiscalValue(selected, "wang_tian")}万亩</td></tr>
+              <tr><th>皇庄</th><td>{fiscalValue(selected, "huang_tian")}万亩</td><th>士绅阻力</th><td>{selected.gentry_resistance}</td></tr>
+              <tr><th>腐败度</th><td>{fiscalValue(selected, "corruption")}</td><th>实收效率</th><td>{Math.round((selected.tax_efficiency ?? 0) * 100)}%</td></tr>
+              <tr><th>账面税基</th><td>{selected.tax_per_turn}万/月</td><th>实收</th><td>{regionMonthlyTax(selected)}万/月</td></tr>
+              <tr><th>田赋实收</th><td>{taxPart(selected, "田赋")}万</td><th>辽饷实收</th><td>{taxPart(selected, "辽饷")}万</td></tr>
+              <tr><th>盐税实收</th><td>{taxPart(selected, "盐税")}万</td><th>商税实收</th><td>{taxPart(selected, "商税")}万</td></tr>
+              <tr><th>辽饷基数</th><td>{fiscalValue(selected, "liao_xiang")}万/月</td><th>盐税基数</th><td>{fiscalValue(selected, "salt_tax")}万/月</td></tr>
+              <tr><th>商税基数</th><td>{fiscalValue(selected, "commerce_tax")}万/月</td><th>皇庄实收</th><td>{taxPart(selected, "皇庄")}万</td></tr>
               <tr><th>天灾</th><td colSpan={3}>{selected.natural_disaster}</td></tr>
               <tr><th>人祸</th><td colSpan={3}>{selected.human_disaster}</td></tr>
               <tr><th>状况</th><td colSpan={3}>{selected.status}</td></tr>

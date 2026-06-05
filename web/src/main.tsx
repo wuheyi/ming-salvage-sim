@@ -762,20 +762,20 @@ function App() {
         </div>
         <button className="hud2-menu-btn"
           title="游戏菜单" aria-label="游戏菜单" onClick={() => setActiveModal("menu")}>
-          <span className="hud2-val">菜单</span>
+          <span className="hud2-val">菜單</span>
         </button>
 
         {/* 右侧竖排部院导航 */}
         {([
-          ["政", "court", "朝堂·召见大臣"],
-          ["吏", "appointment", "官员任免"],
-          ["省", "region", "省份列表"],
-          ["兵", "army", "军队列表"],
-          ["户", "economy", "经济面板"],
-          ["工", "building", "建筑列表"],
-          ["礼", "court", "礼部"],
-          ["后", "harem", "后宫"],
-          ["目", "goal", "长期目标"],
+          ["朝堂", "court", "朝堂·召见大臣"],
+          ["吏部", "appointment", "官员任免"],
+          ["省份", "region", "省份列表"],
+          ["兵部", "army", "军队列表"],
+          ["戶部", "economy", "经济面板"],
+          ["工部", "building", "建筑列表"],
+          ["禮部", "court", "礼部"],
+          ["後宮", "harem", "后宫"],
+          ["目標", "goal", "长期目标"],
         ] as const).map(([label, key, title], idx) => {
           const slotKey = (["政","吏部","省份","兵部","户部","工部","礼部","后宫","目标"] as const)[idx];
           return (
@@ -789,16 +789,16 @@ function App() {
 
         {/* 底部 5 命令物件（扣图填进木牌） */}
         <CommandSlot slotKey="奏疏" img="奏疏" badge={state.events.length}
-          caption="奏疏" sub={`${state.events.length} 件待览`} onClick={() => setActiveModal("state")} />
+          caption="奏疏" sub={`${state.events.length} 件待覽`} onClick={() => setActiveModal("state")} />
         <CommandSlot slotKey="邸报" img="邸报"
-          caption="邸报详明" sub="数项加减/账目明细" onClick={() => setActiveModal("extraction")} />
+          caption="邸報詳明" sub="數項加減/賬目明細" onClick={() => setActiveModal("extraction")} />
         <CommandSlot slotKey="密令" img="密令"
           badge={secretOrders.filter((o) => o.status === "active" || o.status === "pending_review").length}
-          caption="密令" sub="进行中密令" onClick={() => setActiveModal("secret_orders")} />
+          caption="密令" sub="進行中密令" onClick={() => setActiveModal("secret_orders")} />
         <CommandSlot slotKey="史册" img="史册"
-          caption="史册" sub="历代奏报/诏书" onClick={() => setActiveModal("history")} />
+          caption="史冊" sub="歷代奏報/詔書" onClick={() => setActiveModal("history")} />
         <CommandSlot slotKey="拟诏" img="拟诏" badge={state.directives.length}
-          caption="拟诏/结束回合" sub={state.directives.length ? `${state.directives.length} 道` : "本回合"}
+          caption="擬詔/結束回合" sub={state.directives.length ? `${state.directives.length} 道` : "本回合"}
           onClick={() => setActiveModal("edict")} />
       </div>
 

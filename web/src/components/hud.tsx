@@ -254,44 +254,44 @@ export function RightDrawer({
 }
 
 // ── 新 HUD 底图坑位坐标（相对底图百分比，见 web/public/ui/exact/hud-slots.json）──
-export const HUD_BG = "/ui/exact/auto-code-image-11685.png";
+export const HUD_BG = "/ui/exact/hud-compact-v2.png";
 
 export const HUD_SLOTS = {
   顶栏: {
-    年月: { left: "9.6%", top: "6.31%" },
-    国库: { left: "25.83%", top: "6.32%" },
-    内库: { left: "42.33%", top: "6.35%" },
-    民心: { left: "58.63%", top: "6.06%" },
-    皇威: { left: "76.09%", top: "6.15%" },
-    菜单: { left: "85.8%", top: "4.6%" },
+    年月: { left: "9.6%", top: "4.89%" },
+    国库: { left: "25.83%", top: "4.9%" },
+    内库: { left: "42.33%", top: "4.92%" },
+    民心: { left: "58.63%", top: "4.71%" },
+    皇威: { left: "76.09%", top: "4.79%" },
+    菜单: { left: "85.8%", top: "3.54%" },
   },
   导航: {
-    政: { left: "93.36%", top: "19.46%" },
-    吏部: { left: "93.38%", top: "23.85%" },
-    省份: { left: "93.55%", top: "33.86%" },
-    兵部: { left: "93.71%", top: "38.14%" },
-    户部: { left: "94.12%", top: "48.09%" },
-    工部: { left: "94.13%", top: "51.64%" },
-    礼部: { left: "94.22%", top: "60.33%" },
-    后宫: { left: "94.36%", top: "68.81%" },
-    目标: { left: "94.56%", top: "76.32%" },
+    政: { left: "93.36%", top: "17.26%" },
+    吏部: { left: "93.38%", top: "22.29%" },
+    省份: { left: "93.55%", top: "33.75%" },
+    兵部: { left: "93.71%", top: "38.66%" },
+    户部: { left: "94.12%", top: "50.06%" },
+    工部: { left: "94.13%", top: "54.13%" },
+    礼部: { left: "94.22%", top: "64.08%" },
+    后宫: { left: "94.36%", top: "73.8%" },
+    目标: { left: "94.56%", top: "82.4%" },
   },
   命令: {
-    奏疏: { left: "12.02%", top: "75.57%", width: "11.8%", height: "11.13%" },
-    邸报: { left: "28.34%", top: "75.45%", width: "11.61%", height: "12.46%" },
-    密令: { left: "46.91%", top: "73.38%", width: "9.76%", height: "13.11%" },
-    史册: { left: "63.92%", top: "73.4%", width: "9.4%", height: "13.21%" },
-    拟诏: { left: "77.29%", top: "67.15%", width: "14.08%", height: "21.67%" },
+    奏疏: { left: "12.02%", top: "80.0%", width: "11.8%", height: "8.23%" },
+    邸报: { left: "28.34%", top: "79.91%", width: "11.61%", height: "9.22%" },
+    密令: { left: "46.91%", top: "78.39%", width: "9.76%", height: "9.7%" },
+    史册: { left: "63.92%", top: "78.4%", width: "9.4%", height: "9.77%" },
+    拟诏: { left: "77.29%", top: "73.78%", width: "14.08%", height: "16.03%" },
   },
   命令文字: {
-    奏疏: { left: "16.78%", top: "89.93%" },
-    邸报: { left: "32.81%", top: "89.66%" },
-    密令: { left: "51.02%", top: "88.99%" },
-    史册: { left: "67.86%", top: "89.68%" },
-    拟诏: { left: "83.9%", top: "89.76%" },
+    奏疏: { left: "16.78%", top: "92.45%" },
+    邸报: { left: "32.81%", top: "92.25%" },
+    密令: { left: "51.02%", top: "91.75%" },
+    史册: { left: "67.86%", top: "92.26%" },
+    拟诏: { left: "83.9%", top: "92.32%" },
   },
-  地图四角: { tl: [17.89, 14.9], tr: [86.95, 14.9], br: [92.13, 76.61], bl: [13.9, 76.61] },
-  局势四角: { tl: [3.14, 24.09], tr: [15.06, 24.09], br: [14.36, 47.95], bl: [1.6, 47.95] },
+  地图四角: { tl: [17.89, 12.04], tr: [86.95, 12.04], br: [92.13, 82.67], bl: [13.9, 82.67] },
+  局势四角: { tl: [3.14, 22.56], tr: [15.06, 22.56], br: [14.85, 82.1], bl: [0.95, 82.1] },
 } as const;
 
 
@@ -513,6 +513,7 @@ export function BudgetHover({ accountName, budget }: { accountName: "国库" | "
   const [pos, setPos] = React.useState<{ left: number; top: number } | null>(null);
   const modifierPct = budget.modifier_pct || 0;
   const hasModifier = modifierPct !== 0 && budget.base_net !== undefined;
+  const displayName = accountName === "国库" ? "國庫" : "內庫";
   const show = () => {
     const r = triggerRef.current?.getBoundingClientRect();
     if (r) setPos({ left: r.left, top: r.bottom + 6 });
@@ -531,17 +532,17 @@ export function BudgetHover({ accountName, budget }: { accountName: "国库" | "
         ref={triggerRef}
         className="status-money budget-trigger"
         type="button"
-        aria-label={`查看${accountName}固定收支`}
+        aria-label={`查看${displayName}固定收支`}
         onClick={() => (open ? hide() : show())}
       >
-        <span>{accountName} <b>{formatMoney(budget.balance)}</b></span>
+        <span>{displayName} <b>{formatMoney(budget.balance)}</b></span>
         <small className={budget.net >= 0 ? "income" : "expense"}>月 {formatSignedMoney(budget.net)}</small>
       </button>
       {open && pos && createPortal(
         <span className="budget-popover budget-popover-portal" role="tooltip"
           style={{ left: pos.left, top: pos.top }}>
           <span className="budget-popover-head">
-            <b>{accountName}月度定额</b>
+            <b>{displayName}月度定額</b>
             <span className="budget-summary">
               <span><small>入</small><strong className="income">{formatMoney(budget.income_total)}</strong></span>
               <span><small>出</small><strong className="expense">{formatMoney(budget.expense_total)}</strong></span>
