@@ -1,7 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { Crown, Loader2, X } from "lucide-react";
-import { api, streamChat } from "./api";
+import { api, streamChat, streamCourtChat } from "./api";
 import { AppointmentDrawer, ArmyDrawer, BuildingDrawer, CourtDrawer, EconomyDrawer, HaremDrawer, RegionDetailModal, RegionDrawer } from "./components/drawers";
 import { ExtractionModal } from "./components/extraction";
 import { GameMenuModal } from "./components/gameMenu";
@@ -12,7 +12,7 @@ import { ChatModal, ClosedIssuesModal, EdictModal, EndingModal, HistoryModal, Re
 import { SituationDrawer, SituationPanel } from "./components/situation";
 import { getMapIntelStyle, refreshLabelMaps, scoreTone } from "./format";
 import { forwardSteamEvents, type SteamEvent } from "./steamEvents";
-import type { AppView, ChatMessage, ClosedIssue, Directive, GameState, MenuStatus, Minister, ModalName, PendingDecision, SecretOrder, Suggestion } from "./types";
+import type { AppView, ChatMessage, ClosedIssue, CourtChatMessage, CourtChatResponse, Directive, GameState, MenuStatus, Minister, ModalName, PendingDecision, SecretOrder, Suggestion } from "./types";
 import "./styles.css";
 
 function App() {
@@ -54,6 +54,15 @@ function App() {
   const [pendingUserMessage, setPendingUserMessage] = React.useState("");
   const [streamingMinisterMessage, setStreamingMinisterMessage] = React.useState("");
   const [chatNotice, setChatNotice] = React.useState("");
+  const [courtChatHistory, setCourtChatHistory] = React.useState<CourtChatMessage[]>([]);
+  const [courtChatInput, setCourtChatInput] = React.useState("");
+  const [courtChatBusy, setCourtChatBusy] = React.useState(false);
+  const [courtChatError, setCourtChatError] = React.useState("");
+  const [courtChatBubbles, setCourtChatBubbles] = React.useState<Record<string, string>>({});
+  const [courtChatPanelOpen, setCourtChatPanelOpen] = React.useState(false);
+  const [courtChatLiveMessages, setCourtChatLiveMessages] = React.useState<CourtChatMessage[]>([]);
+  const courtChatDeltaQueueRef = React.useRef<{ speaker: string; delta: string }[]>([]);
+  const courtChatDrainTimerRef = React.useRef<number | null>(null);
   const [composerHint, setComposerHint] = React.useState("");
   const [input, setInput] = React.useState("");
   const [directiveText, setDirectiveText] = React.useState("");
@@ -117,6 +126,76 @@ function App() {
     }
     await loadState();  // 重新拉 state，新 portrait_id 流回卡片
   }, [loadState]);
+
+  const refreshCourtChat = React.useCallback(async () => {
+    const data = await api<CourtChatResponse>("/api/court_chat");
+    setCourtChatHistory(data.history || []);
+  }, []);
+
+  const appendCourtChatDelta = React.useCallback((speaker: string, delta: string) => {
+    if (!speaker || !delta) return;
+    setCourtChatBubbles((current) => ({ ...current, [speaker]: `${(current[speaker] || "")}${delta}`.slice(-42) }));
+    setCourtChatLiveMessages((current) => {
+      const next = [...current];
+      const last = next[next.length - 1];
+      if (last && last.role === "minister" && last.speaker === speaker) {
+        const content = `${last.content || ""}${delta}`.replace(/^\s+/, "");
+        next[next.length - 1] = { ...last, content, displayContent: content };
+        return next;
+      }
+      const content = delta.replace(/^\s+/, "");
+      return [...next, { role: "minister", speaker, content, displayContent: content }];
+    });
+  }, []);
+
+  const drainCourtChatDeltas = React.useCallback(() => {
+    const next = courtChatDeltaQueueRef.current.shift();
+    if (next) {
+      appendCourtChatDelta(next.speaker, next.delta);
+    }
+    if (courtChatDeltaQueueRef.current.length) {
+      courtChatDrainTimerRef.current = window.setTimeout(drainCourtChatDeltas, 24);
+    } else {
+      courtChatDrainTimerRef.current = null;
+    }
+  }, [appendCourtChatDelta]);
+
+  const queueCourtChatDelta = React.useCallback((speaker: string, delta: string) => {
+    if (!speaker || !delta) return;
+    courtChatDeltaQueueRef.current.push({ speaker, delta });
+    if (courtChatDrainTimerRef.current === null) {
+      courtChatDrainTimerRef.current = window.setTimeout(drainCourtChatDeltas, 24);
+    }
+  }, [drainCourtChatDeltas]);
+
+  const flushCourtChatDeltas = React.useCallback(() => {
+    while (courtChatDeltaQueueRef.current.length) {
+      const next = courtChatDeltaQueueRef.current.shift();
+      if (next) appendCourtChatDelta(next.speaker, next.delta);
+    }
+    if (courtChatDrainTimerRef.current !== null) {
+      window.clearTimeout(courtChatDrainTimerRef.current);
+      courtChatDrainTimerRef.current = null;
+    }
+  }, [appendCourtChatDelta]);
+
+  React.useEffect(() => {
+    return () => {
+      if (courtChatDrainTimerRef.current !== null) {
+        window.clearTimeout(courtChatDrainTimerRef.current);
+      }
+      courtChatDrainTimerRef.current = null;
+      courtChatDeltaQueueRef.current = [];
+    };
+  }, []);
+
+  const refreshCourtChatWithError = React.useCallback(() => {
+    refreshCourtChat()
+      .then(() => setCourtChatError(""))
+      .catch(() => {
+        // 旧后端未重启或接口暂不可用时，不要用大错误牌挡住朝堂。
+      });
+  }, [refreshCourtChat]);
 
   const refreshMenuStatus = React.useCallback(async () => {
     const s = await api<MenuStatus>("/api/menu/status");
@@ -411,6 +490,62 @@ function App() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy("");
+    }
+  };
+
+  const sendCourtChat = async (visibleMinisters: Minister[]) => {
+    if (courtChatBusy) return;
+    const message = courtChatInput.trim();
+    if (!message) return;
+    const speakers = visibleMinisters
+      .filter((m) => m.status === "active")
+      .map((m) => m.name);
+    if (!speakers.length) {
+      setCourtChatError("朝堂当前没有可参与朝议的大臣。");
+      return;
+    }
+    setCourtChatBusy(true);
+    setCourtChatError("");
+    setCourtChatInput("");
+    setCourtChatBubbles({});
+    if (courtChatDrainTimerRef.current !== null) {
+      window.clearTimeout(courtChatDrainTimerRef.current);
+      courtChatDrainTimerRef.current = null;
+    }
+    courtChatDeltaQueueRef.current = [];
+    setCourtChatPanelOpen(true);
+    setCourtChatLiveMessages([{ role: "emperor", speaker: "皇帝", content: message, displayContent: message }]);
+    setCourtChatHistory((current) => [...current, { role: "emperor", speaker: "皇帝", content: message }]);
+    try {
+      const data = await streamCourtChat(
+        message,
+        speakers,
+        () => {},
+        (speaker, delta) => {
+          if (!speaker || !delta) return;
+          queueCourtChatDelta(speaker, delta);
+        },
+        (speaker) => {
+          if (!speaker) return;
+          flushCourtChatDeltas();
+          setCourtChatLiveMessages((current) => {
+            const last = current[current.length - 1];
+            if (last && last.role === "minister" && last.speaker === speaker && !last.content) return current;
+            return [...current, { role: "minister", speaker, content: "", displayContent: "" }];
+          });
+        },
+      );
+      flushCourtChatDeltas();
+      setCourtChatHistory(data.history || []);
+      window.setTimeout(() => {
+        setCourtChatBubbles({});
+      }, 7000);
+    } catch (err) {
+      flushCourtChatDeltas();
+      setCourtChatInput(message);
+      setCourtChatError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCourtChatBusy(false);
     }
   };
 
@@ -806,6 +941,17 @@ function App() {
         onClose={guardClose(() => setDrawerOpen(false))}
         onOpenChat={openChat}
         onUploadPortrait={uploadPortrait}
+        courtChatHistory={courtChatHistory}
+        courtChatInput={courtChatInput}
+        courtChatBusy={courtChatBusy}
+        courtChatError={courtChatError}
+        courtChatBubbles={courtChatBubbles}
+        courtChatPanelOpen={courtChatPanelOpen}
+        courtChatLiveMessages={courtChatLiveMessages}
+        onCourtChatInputChange={setCourtChatInput}
+        onSendCourtChat={sendCourtChat}
+        onRefreshCourtChat={refreshCourtChatWithError}
+        onCloseCourtChatPanel={() => setCourtChatPanelOpen(false)}
       />
 
       <HaremDrawer

@@ -361,6 +361,18 @@ class _SchemaMixin:
             CREATE INDEX IF NOT EXISTS idx_chat_messages_turn
                 ON chat_messages(turn);
 
+            -- 朝会聊天室记录：一月一个 session，以 turn 分组；speaker 记录皇帝/大臣名。
+            CREATE TABLE IF NOT EXISTS court_chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                turn INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                speaker TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_court_chat_messages_turn
+                ON court_chat_messages(turn, id);
+
             -- 原召对撤回表 chat_turns / chat_turn_rollback_items 已废：召对中途退出＝前端中断
             -- 线程，整轮不落库（副作用循环在流式跑完后才执行，中断即无副作用），无需事后回滚。
 

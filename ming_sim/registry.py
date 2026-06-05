@@ -24,6 +24,10 @@ from ming_sim.tools import _duty_location, build_minister_tools
 _content: Optional[GameContent] = None
 _skills_cache: Dict[str, Skills] = {}
 
+# 大臣对话 history 窗口：agno 单 session 内取尾 N 轮；跨月补足（web_app._prev_chat_brief）
+# 凑够 N 轮也用它（单一真相，勿散开写死）。
+NUM_HISTORY_RUNS = 6
+
 # 所有大臣共有的 agno skill：记忆检索、拟旨入档、密令、召见传人。
 # office 专属 skill（户部 tax-adjust、礼部/司礼监 consort-selection 等）走 skills.json
 # office_default_skills[office].agno_skills，加新 office 只改 JSON，不改这里。
@@ -473,7 +477,7 @@ def create_minister_agent(
         tools=tools,
         skills=minister_skills if not is_consort else None,
         add_history_to_context=True,
-        num_history_runs=6,
+        num_history_runs=NUM_HISTORY_RUNS,
         tool_call_limit=5,
         markdown=False,
     )

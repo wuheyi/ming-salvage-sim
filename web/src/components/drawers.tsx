@@ -1,8 +1,8 @@
 import React from "react";
-import { Crown, Landmark, MapPinned, ScrollText, Star, Swords, X } from "lucide-react";
+import { Crown, Landmark, MapPinned, MessageSquareText, ScrollText, Star, Swords, X } from "lucide-react";
 import { MinisterPortrait, PortraitUploadButton, RightDrawer, cacheBust, courtSlots, loadCourtPos, saveCourtPos, snapToSlot } from "./hud";
 import { formatMoney, formatSignedMoney, regionMonthlyTax } from "../format";
-import type { Army, Building, GameState, MapNode, Minister, Region, Technology } from "../types";
+import type { Army, Building, CourtChatMessage, GameState, MapNode, Minister, Region, Technology } from "../types";
 
 export function MinisterCardList({
   list,
@@ -12,6 +12,7 @@ export function MinisterCardList({
   onOpenChat,
   onUploadPortrait,
   courtMode = false,
+  courtBubbles = {},
 }: {
   list: Minister[];
   portraitPrefix: string;
@@ -20,6 +21,7 @@ export function MinisterCardList({
   onOpenChat: (minister: Minister) => void;
   onUploadPortrait?: (ministerName: string, file: File) => Promise<void>;
   courtMode?: boolean;
+  courtBubbles?: Record<string, string>;
 }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [positions, setPositions] = React.useState<Record<string, { px: number; py: number }>>({});
@@ -246,6 +248,12 @@ export function MinisterCardList({
               <span className="minister-bio">{minister.summary}</span>
             </div>
             {minister.favorite && <Star className="favorite-mark" size={13} />}
+            {courtBubbles[minister.name] ? (
+              <div className="court-speech-bubble" role="status">
+                <b>{minister.name}</b>
+                <span>{courtBubbles[minister.name]}</span>
+              </div>
+            ) : null}
           </button>
         );
       })}
@@ -654,6 +662,17 @@ export function CourtDrawer({
   onClose,
   onOpenChat,
   onUploadPortrait,
+  courtChatHistory,
+  courtChatInput,
+  courtChatBusy,
+  courtChatError,
+  courtChatBubbles,
+  courtChatPanelOpen,
+  courtChatLiveMessages,
+  onCourtChatInputChange,
+  onSendCourtChat,
+  onRefreshCourtChat,
+  onCloseCourtChatPanel,
 }: {
   state: GameState;
   ministers: Minister[];
@@ -664,9 +683,26 @@ export function CourtDrawer({
   onClose: () => void;
   onOpenChat: (minister: Minister) => void;
   onUploadPortrait: (ministerName: string, file: File) => Promise<void>;
+  courtChatHistory: CourtChatMessage[];
+  courtChatInput: string;
+  courtChatBusy: boolean;
+  courtChatError: string;
+  courtChatBubbles: Record<string, string>;
+  courtChatPanelOpen: boolean;
+  courtChatLiveMessages: CourtChatMessage[];
+  onCourtChatInputChange: (value: string) => void;
+  onSendCourtChat: (ministers: Minister[]) => void;
+  onRefreshCourtChat: () => void;
+  onCloseCourtChatPanel: () => void;
 }) {
   const [q, setQ] = React.useState("");
+  const [showHistory, setShowHistory] = React.useState(false);
   const filtered = q ? ministers.filter((m) => m.name.includes(q) || (m.office || "").includes(q)) : ministers;
+  const canChat = open && filtered.some((m) => m.status === "active");
+  React.useEffect(() => {
+    if (!open) return;
+    onRefreshCourtChat();
+  }, [open, onRefreshCourtChat]);
   return (
     <>
       {open && <button className="drawer-scrim" aria-label="收起" onClick={onClose} />}
@@ -700,7 +736,70 @@ export function CourtDrawer({
           onOpenChat={onOpenChat}
           courtMode={ministerGroup === "内阁+六部" || ministerGroup === "收藏"}
           onUploadPortrait={onUploadPortrait}
+          courtBubbles={courtChatPanelOpen ? {} : courtChatBubbles}
         />
+        {courtChatPanelOpen ? (
+          <>
+            <div className="court-chat-panel-scrim" aria-hidden="true" />
+            <section className="court-chat-panel" role="dialog" aria-modal="false" aria-label="朝会群臣奏对">
+              <header className="court-chat-panel-head">
+                <div>
+                  <b>朝会群臣</b>
+                  <span>{courtChatBusy ? "群臣奏对中" : "奏对已毕"}</span>
+                </div>
+                <button className="icon-button" onClick={onCloseCourtChatPanel} aria-label="关闭朝会奏对"><X size={15} /></button>
+              </header>
+              <div className="court-chat-panel-body">
+                {courtChatLiveMessages.map((m, i) => (
+                  <article key={`${m.speaker}-${i}-${m.content}`} className={`court-chat-panel-line ${m.role}`}>
+                    <strong>{m.speaker}</strong>
+                    <p>{m.displayContent ?? m.content}</p>
+                  </article>
+                ))}
+                {courtChatBusy ? <div className="court-chat-panel-thinking">殿上诸臣正相继出班...</div> : null}
+              </div>
+            </section>
+          </>
+        ) : null}
+        <div className="court-chat-dock">
+          <button className="court-chat-history-btn" onClick={() => setShowHistory((v) => !v)} title="查看本月朝会聊天历史">
+            <MessageSquareText size={16} />
+            <span>{courtChatHistory.length}</span>
+          </button>
+          <textarea
+            className="court-chat-input"
+            value={courtChatInput}
+            placeholder="垂询群臣..."
+            rows={1}
+            onChange={(e) => onCourtChatInputChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                onSendCourtChat(filtered);
+              }
+            }}
+          />
+          <button className="court-chat-send" disabled={!canChat || courtChatBusy || !courtChatInput.trim()} onClick={() => onSendCourtChat(filtered)}>
+            {courtChatBusy ? "群臣奏对中" : "发问"}
+          </button>
+          {courtChatError ? <div className="court-chat-error">{courtChatError}</div> : null}
+          {showHistory ? (
+            <div className="court-chat-history" role="dialog" aria-label="本月朝会聊天历史">
+              <div className="court-chat-history-head">
+                <b>本月朝会</b>
+                <button className="icon-button" onClick={() => setShowHistory(false)} aria-label="关闭朝会历史"><X size={14} /></button>
+              </div>
+              <div className="court-chat-history-list">
+                {courtChatHistory.length ? courtChatHistory.map((m, i) => (
+                  <div key={`${m.speaker}-${i}-${m.content}`} className={`court-chat-line ${m.role}`}>
+                    <strong>{m.speaker}</strong>
+                    <span>{m.content}</span>
+                  </div>
+                )) : <div className="court-chat-empty">本月尚无朝会奏对。</div>}
+              </div>
+            </div>
+          ) : null}
+        </div>
       </aside>
     </>
   );

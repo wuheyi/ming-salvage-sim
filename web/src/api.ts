@@ -1,6 +1,6 @@
 import React from "react";
 import { forwardSteamEvents } from "./steamEvents";
-import type { ApiErrorDetail, ChatResponse } from "./types";
+import type { ApiErrorDetail, ChatResponse, CourtChatMessage, CourtChatResponse } from "./types";
 
 export class ApiRequestError extends Error {
   detail: ApiErrorDetail;
@@ -105,4 +105,57 @@ export const streamChat = async (
   }
 
   throw new Error("流式回复中断，未收到完成事件。");
+};
+
+export const streamCourtChat = async (
+  message: string,
+  ministers: string[],
+  onReply: (reply: CourtChatMessage) => void,
+  onDelta?: (speaker: string, delta: string) => void,
+  onSpeaker?: (speaker: string) => void,
+): Promise<CourtChatResponse> => {
+  const response = await fetch("/api/court_chat/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, ministers }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new ApiRequestError(normalizeApiError(error, response.statusText), response.statusText);
+  }
+  if (!response.body) {
+    throw new Error("浏览器不支持流式朝会。");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+    const messages = buffer.split("\n\n");
+    buffer = messages.pop() || "";
+
+    for (const messageBlock of messages) {
+      const parsed = parseSseMessage(messageBlock);
+      if (!parsed) continue;
+      const payload = JSON.parse(parsed.data);
+      if (parsed.event === "reply") {
+        onReply(payload as CourtChatMessage);
+      } else if (parsed.event === "speaker") {
+        onSpeaker?.(String(payload.speaker || ""));
+      } else if (parsed.event === "delta") {
+        onDelta?.(String(payload.speaker || ""), String(payload.content || ""));
+      } else if (parsed.event === "done") {
+        return payload as CourtChatResponse;
+      } else if (parsed.event === "error") {
+        throw new ApiRequestError(normalizeApiError(payload, "朝会回复失败。"), "朝会回复失败。");
+      }
+    }
+
+    if (done) break;
+  }
+
+  throw new Error("朝会流式回复中断，未收到完成事件。");
 };

@@ -20,7 +20,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ming_sim.constants import ROOT_DIR
 from ming_sim.paths import bundled_path, user_data_path, user_data_dir
@@ -34,15 +34,19 @@ from ming_sim.llm_config import (
     save_runtime_game,
     save_runtime_llm,
 )
-from ming_sim.agents import _dump_llm_messages
-from ming_sim.llm_model import extract_agent_text, verify_llm_available
+from agno.agent import Agent
+
+from ming_sim.agents import _dump_llm_messages, build_simulator_context
+from ming_sim.llm_model import create_chat_model, extract_agent_text, verify_llm_available
 from ming_sim.llm_contract import fail_if_llm_error
 from ming_sim.issues import _format_issue_ongoing
 from ming_sim.session import GameSession
 from ming_sim.session import AUTO_SAVE_PREFIX
 from ming_sim.skills import available_skill_ids, skill_display_name, skill_source_labels
-from ming_sim.context import match_minister_from_text
+from ming_sim.context import character_context_with_db, match_minister_from_text
+from ming_sim.registry import NUM_HISTORY_RUNS
 from ming_sim.flows import calc_province_fiscal, compute_budget_lines
+from ming_sim.simulation import build_simulator_payload
 from ming_sim.exceptions import LLMContractError  # noqa: F401  (保留：供错误处理)
 from ming_sim.models import Character, LLMConfig
 from ming_sim import steam_events
@@ -321,6 +325,11 @@ def _llm_error_detail(exc: Exception, prefix: str = "") -> Dict[str, Any]:
 
 class ChatRequest(BaseModel):
     message: str
+
+
+class CourtChatRequest(BaseModel):
+    message: str
+    ministers: List[str] = Field(default_factory=list)
 
 
 class DirectiveRequest(BaseModel):
@@ -1002,6 +1011,25 @@ class WebGame:
             return f"minister-{minister_name}-turn-{self.state.turn}"
         return registry.session_ids.get(minister_name, f"minister-{minister_name}-turn-{self.state.turn}")
 
+    def _prev_chat_brief(self, minister_name: str) -> str:
+        """跨月补足：agno 本月 session 每月新建（history 为空），本月聊不满 NUM_HISTORY_RUNS 轮时，
+        从 chat_messages 取上月（更早）尾 (N - 本月轮数) 轮纯文本对话补进 user message，
+        凑足滑动窗口。临时召见人物不落 chat_messages，直接跳过。"""
+        if not self._persistent_chat_minister(minister_name):
+            return ""
+        cur_turn = int(self.state.turn)
+        cur_rounds = self.db.count_chat_rounds_in_turn(minister_name, cur_turn)
+        need = NUM_HISTORY_RUNS - cur_rounds
+        if need <= 0:
+            return ""
+        rows = self.db.load_prev_chat_rounds(minister_name, cur_turn, need)
+        if not rows:
+            return ""
+        lines = ["【往月奏对（接续此前数月议事，作答时延续此前君臣交流）】"]
+        for r in rows:
+            who = "上" if r["role"] == "user" else "臣"
+            lines.append(f"{who}：{r['content']}")
+        return "\n".join(lines)
 
     def _chat_payload(
         self,
@@ -1052,7 +1080,10 @@ class WebGame:
         if not text:
             raise HTTPException(status_code=400, detail="问话不能为空。")
         # 召对答完才落库（user+minister 一起，见 _chat_payload）；中途退出/异常整轮不落库。
-        result = self.session.chat(minister_name, text)
+        # 跨月补足：喂 LLM 的话前置往月奏对；落库 _chat_payload 仍存原始 text（不污染存档）。
+        brief = self._prev_chat_brief(minister_name)
+        augmented = f"{brief}\n\n{text}" if brief else text
+        result = self.session.chat(minister_name, augmented)
         proposed = None
         if result.proposed_directive is not None:
             d = result.proposed_directive
@@ -1081,8 +1112,11 @@ class WebGame:
         chunks: List[str] = []
         try:
             agent = self.session.registry.get(character)
+            # 跨月补足：喂 LLM 的话前置往月奏对；落库 _chat_payload 仍存原始 text（不污染存档）。
+            brief = self._prev_chat_brief(minister_name)
+            augmented = f"{brief}\n\n{text}" if brief else text
             run_output = None
-            stream = agent.run(text, stream=True, stream_events=True, yield_run_output=True)
+            stream = agent.run(augmented, stream=True, stream_events=True, yield_run_output=True)
             for event in stream:
                 content = getattr(event, "content", None)
                 event_name = getattr(event, "event", "")
@@ -1191,6 +1225,247 @@ class WebGame:
                 tax_adjusted=tax_adjusted,
             )
             yield {"type": "done", "payload": payload}
+        except Exception as error:
+            if isinstance(error, LLMUnavailable):
+                yield {"type": "error", "detail": _llm_error_detail(error)}
+            else:
+                yield {"type": "error", "message": str(error)}
+
+    def court_chat_history_payload(self) -> Dict[str, Any]:
+        history = self.db.load_court_chat_history(self.state.turn)
+        return {
+            "turn": self.state.turn,
+            "year": self.state.year,
+            "period": self.state.period,
+            "history": history,
+        }
+
+    def _court_chat_agent(self, simulator_payload: Dict[str, object]) -> Agent:
+        return Agent(
+            name="朝会群臣",
+            id="court-chat",
+            session_id=f"court-chat-turn-{self.state.turn}",
+            db=self.session.agno_db,
+            model=create_chat_model(
+                self.session.llm_config,
+                temperature=0.65,
+                top_p=0.9,
+                max_tokens=max(1200, self.session.llm_config.max_tokens),
+            ),
+            instructions=[
+                self.content.game_world_prompt,
+                build_simulator_context(simulator_payload),
+                self.content.court_chat_agent_prompt,
+            ],
+            add_history_to_context=True,
+            num_history_runs=4,
+            markdown=False,
+        )
+
+    def _court_simulator_payload(self) -> Dict[str, object]:
+        return build_simulator_payload(
+            self.state,
+            self.db,
+            decree_text="",
+            previous_narrative=self.previous_summary or "",
+            relevant_memories=self.db.list_chapter_memories(upto_turn=self.state.turn, recent=6),
+            secret_orders=[
+                {
+                    "id": int(o["id"]),
+                    "minister_name": o["minister_name"],
+                    "title": o["title"],
+                    "content": str(o["content"] or "")[:120],
+                    "status": o["status"],
+                    "turn_issued": o.get("turn_issued") or 0,
+                    "due_turn": o.get("due_turn") or 0,
+                    "progress": o.get("result") or "",
+                    "sim_note": o.get("sim_note") or "",
+                }
+                for o in (
+                    self.db.list_secret_orders(status="active")
+                    + self.db.list_secret_orders(status="pending_review")
+                )[:20]
+            ],
+        )
+
+    def _court_chat_payload(self, text: str, roster: List[Character], history: List[Dict[str, str]]) -> str:
+        roster_lines = [
+            "- " + character_context_with_db(c, self.db)
+            for c in roster
+        ]
+
+        def clean_history_content(value: object) -> str:
+            content = str(value or "")
+            content = re.sub(r"\s*<<<臣:([^>\n]+)>>+\s*", r"\n\1：", content)
+            return content.strip()
+
+        history_lines = [
+            f"{m.get('speaker', '')}：{clean_history_content(m.get('content', ''))}"
+            for m in history[-16:]
+        ]
+        payload = {
+            "note": "完整游戏盘面在 system 的 simulator_payload 前缀中；本 user payload 只补朝会差异信息。",
+            "court_chat_history": history_lines or ["无"],
+            "present_ministers": roster_lines,
+            "emperor_message": text,
+            "instruction": "请按系统规定的 <<<臣:大臣姓名>>> 分隔符协议，组织多位在场大臣依次奏对。",
+        }
+        return "【朝会群聊输入】\n" + json.dumps(payload, ensure_ascii=False, indent=2)
+
+    def _active_court_ministers(self, requested: List[str]) -> List[Character]:
+        selected: List[Character] = []
+        seen: set[str] = set()
+        source_names = requested or [
+            c.name for c in self.content.characters.values()
+            if c.office_type != "后宫" and self.character_power_id(c) == "ming"
+        ]
+        for name in source_names:
+            c = self.content.characters.get(name)
+            if c is None or c.name in seen:
+                continue
+            if self.character_power_id(c) != "ming":
+                continue
+            status, _reason = self.db.get_character_status(c.name)
+            if status != "active":
+                continue
+            if not (c.office or "").strip():
+                continue
+            selected.append(c)
+            seen.add(c.name)
+            if len(selected) >= 12:
+                break
+        return selected
+
+    def court_chat_stream(self, message: str, ministers: List[str]) -> Iterator[Dict[str, Any]]:
+        text = message.strip()
+        if not text:
+            yield {"type": "error", "message": "朝会发言不能为空。"}
+            return
+        roster = self._active_court_ministers(ministers)
+        if not roster:
+            yield {"type": "error", "message": "朝堂当前没有可参与朝议的大臣。"}
+            return
+
+        history = self.db.load_court_chat_history(self.state.turn)
+        self.db.append_court_chat_message(self.state.turn, "emperor", "皇帝", text)
+        try:
+            simulator_payload = self._court_simulator_payload()
+            prompt = self._court_chat_payload(text, roster, history)
+            agent = self._court_chat_agent(simulator_payload)
+            allowed = {c.name for c in roster}
+            fallback_speaker = roster[0].name
+            replies: List[Dict[str, str]] = []
+            current_speaker = ""
+            current_content: List[str] = []
+            all_chunks: List[str] = []
+            delimiter_re = re.compile(r"<<<臣:([^>\n]+)>>+")
+            pending_text = ""
+
+            def flush_text(text_part: str) -> Iterator[Dict[str, Any]]:
+                nonlocal current_speaker, current_content
+                if not text_part:
+                    return
+                if not current_speaker:
+                    current_speaker = fallback_speaker
+                    yield {"type": "speaker", "speaker": current_speaker}
+                chunk_size = 4
+                for start in range(0, len(text_part), chunk_size):
+                    chunk = text_part[start:start + chunk_size]
+                    if not chunk:
+                        continue
+                    current_content.append(chunk)
+                    yield {"type": "delta", "speaker": current_speaker, "content": chunk}
+
+            def finish_current() -> None:
+                nonlocal current_speaker, current_content
+                content = "".join(current_content).strip()
+                if current_speaker and content:
+                    replies.append({"role": "minister", "speaker": current_speaker, "content": content})
+                current_speaker = ""
+                current_content = []
+
+            def emit_pending(force: bool = False) -> Iterator[Dict[str, Any]]:
+                """Parse minister delimiters incrementally without leaking delimiters as speech."""
+                nonlocal current_speaker, current_content, pending_text
+                while pending_text:
+                    match = delimiter_re.search(pending_text)
+                    if match:
+                        before = pending_text[:match.start()]
+                        if before:
+                            for item in flush_text(before):
+                                yield item
+                        finish_current()
+                        speaker = match.group(1).strip()
+                        current_speaker = speaker if speaker in allowed else fallback_speaker
+                        current_content = []
+                        yield {"type": "speaker", "speaker": current_speaker}
+                        pending_text = pending_text[match.end():]
+                        continue
+
+                    marker_start = pending_text.find("<<<臣:")
+                    if marker_start >= 0:
+                        if marker_start:
+                            before = pending_text[:marker_start]
+                            pending_text = pending_text[marker_start:]
+                            for item in flush_text(before):
+                                yield item
+                            continue
+                        if force:
+                            broken = pending_text
+                            pending_text = ""
+                            for item in flush_text(broken):
+                                yield item
+                        break
+
+                    keep = 5
+                    if force or len(pending_text) <= keep:
+                        if force:
+                            text_part = pending_text
+                            pending_text = ""
+                            for item in flush_text(text_part):
+                                yield item
+                        break
+                    emit_part = pending_text[:-keep]
+                    pending_text = pending_text[-keep:]
+                    for item in flush_text(emit_part):
+                        yield item
+
+            run_output = None
+            stream = agent.run(prompt, stream=True, stream_events=True, yield_run_output=True)
+            for event in stream:
+                content = getattr(event, "content", None)
+                event_name = getattr(event, "event", "")
+                if event_name == "RunContent" and content:
+                    delta = str(content)
+                    all_chunks.append(delta)
+                    pending_text += delta
+                    for item in emit_pending():
+                        yield item
+                if type(event).__name__ in ("RunOutput", "RunCompletedEvent"):
+                    run_output = event
+
+            if pending_text:
+                for item in emit_pending(force=True):
+                    yield item
+            finish_current()
+            _dump_llm_messages(run_output, "朝会聊天室", agent=agent)
+            if not replies:
+                replies = [{
+                    "role": "minister",
+                    "speaker": fallback_speaker,
+                    "content": "陛下所问，臣等已闻。此事牵涉钱粮、吏治与边防，宜先明轻重缓急，再分付各部具议，不可一味躁进。",
+                }]
+                yield {"type": "speaker", "speaker": fallback_speaker}
+                yield {"type": "delta", "speaker": fallback_speaker, "content": replies[0]["content"]}
+            for reply in replies:
+                self.db.append_court_chat_message(
+                    self.state.turn,
+                    reply["role"],
+                    reply["speaker"],
+                    reply["content"],
+                )
+                yield {"type": "reply", **reply}
+            yield {"type": "done", "payload": self.court_chat_history_payload()}
         except Exception as error:
             if isinstance(error, LLMUnavailable):
                 yield {"type": "error", "detail": _llm_error_detail(error)}
@@ -1753,6 +2028,44 @@ async def api_chat_stream(minister_name: str, request: ChatRequest) -> Streaming
             await asyncio.sleep(0)
 
     return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+@app.get("/api/court_chat")
+async def api_court_chat_history() -> Dict[str, Any]:
+    return get_game().court_chat_history_payload()
+
+
+@app.post("/api/court_chat/stream")
+async def api_court_chat_stream(request: CourtChatRequest) -> StreamingResponse:
+    game = get_game()
+    async def generate() -> AsyncIterator[str]:
+        for item in game.court_chat_stream(request.message, request.ministers):
+            item_type = str(item.get("type", "message"))
+            if item_type == "reply":
+                yield sse_event("reply", {
+                    "role": item.get("role", "minister"),
+                    "speaker": item.get("speaker", ""),
+                    "content": item.get("content", ""),
+                })
+            elif item_type == "speaker":
+                yield sse_event("speaker", {"speaker": item.get("speaker", "")})
+            elif item_type == "delta":
+                yield sse_event("delta", {
+                    "speaker": item.get("speaker", ""),
+                    "content": item.get("content", ""),
+                })
+            elif item_type == "done":
+                yield sse_event("done", item.get("payload", {}))
+            elif item_type == "error":
+                yield sse_event("error", item.get("detail") or {"message": item.get("message", "朝会回复失败。")})
+            await asyncio.sleep(0)
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+@app.post("/api/court_chat")
+async def api_court_chat_stream_alias(request: CourtChatRequest) -> StreamingResponse:
+    return await api_court_chat_stream(request)
 
 
 @app.post("/api/directives")

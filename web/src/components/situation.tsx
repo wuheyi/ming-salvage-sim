@@ -184,8 +184,7 @@ export function SituationRow({ issue }: { issue: Issue }) {
   };
   return (
     <div ref={ref} className={`situation-row ${issueTone(issue.bar_value)}`} tabIndex={0}
-      onClick={(e) => {
-        if ((e.currentTarget.closest(".situation-panel") as HTMLElement | null)?.classList.contains("compact")) return;
+      onClick={() => {
         setDetail(true);
         setTipPos(null);
       }} role="button"

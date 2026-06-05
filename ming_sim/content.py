@@ -571,6 +571,7 @@ class GameContent:
     game_world_prompt: str = ""
     minister_agent_prompt: str = ""
     consort_agent_prompt: str = ""
+    court_chat_agent_prompt: str = ""
 
     decree_writer_prompt: str = ""
     season_simulator_prompt: str = ""
@@ -640,6 +641,7 @@ class GameContent:
             game_world_prompt=load_text_asset("prompts/game_world.md"),
             minister_agent_prompt=load_text_asset("prompts/minister_agent.md"),
             consort_agent_prompt=load_text_asset("prompts/consort_agent.md"),
+            court_chat_agent_prompt=load_text_asset("prompts/court_chat_agent.md"),
             decree_writer_prompt=load_text_asset("prompts/decree_writer.md"),
             season_simulator_prompt=load_text_asset("prompts/season_simulator.md"),
             score_extractor_shared_prompt=load_text_asset("prompts/score_extractor_shared.md"),
