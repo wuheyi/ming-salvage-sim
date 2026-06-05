@@ -11,10 +11,9 @@ from ming_sim.models import GameState
 
 
 # ── 省级财政计算 ──────────────────────────────────────────────────────────────
-
-# 皇庄增量租率：没收藩王庄田转皇庄后，每万亩每月增加内库收入（万两）
-# 基准皇庄收入走 fiscal_config.皇庄_base；此常数只用于增量计算
-_HUANG_TIAN_RENT_PER_WAN_MU = 0.57  # ≈ 20万两/月 ÷ 35万亩
+# 田赋/皇庄亩率（毫/亩/年）走 fiscal_config（田赋亩率_base / 皇庄亩率_base），可后台调/随改革变。
+# 田赋省可在 fiscal.tian_fu_li 覆盖全局。史实锚点：田赋250毫≈0.025两/亩(全国1560万/年)，
+# 皇庄32毫≈0.0032两/亩(两京2500万亩≈8万/月，子粒银量级)。内帑第一大来源是金花银而非皇庄。
 
 
 def _province_transport_ratio(fiscal: dict, unrest: int) -> float:
@@ -47,18 +46,23 @@ def calc_province_fiscal(
 ) -> Tuple[int, int, List[Dict]]:
     """按省计算月度财政收入。
 
-    tax_per_turn 是省级校准月税基准（含田赋+辽饷+盐税+商税合计）。
-    fiscal JSON 里的税种细分用于拆比例；动态系数（tr/cr）乘在总量上。
-    皇庄地租单独走内库，基准来自 fiscal.huang_tian × 租率。
+    田赋/辽饷按亩率从基准算（content/regions.json 预算时已 官民田×亩率 落成月额）：
+      tax_per_turn = 该省田赋账面月额（万两）        ← 不再是四税合计，就是田赋
+      fiscal.liao_xiang = 辽饷账面月额（万两）        ← 官民田×辽饷亩率
+    盐税/商税不按亩，仍读 fiscal.salt_tax / commerce_tax 基数。
+    四税各乘综合到账率 eff（辽饷再受皇威折扣）。皇庄地租单独走内库（huang_tian×租率）。
 
     返回 (国库月收合计, 内库月收合计, 明细列表)。
     """
     rows = db.conn.execute(
-        "SELECT id, name, unrest, gentry_resistance, tax_per_turn, fiscal FROM regions"
+        "SELECT id, name, unrest, gentry_resistance, fiscal FROM regions"
     ).fetchall()
     if not rows:
         raise SystemExit("calc_province_fiscal: regions 表无数据，中止。")
 
+    cfg = db.get_fiscal_config()
+    tian_fu_li_global = int(cfg.get("田赋亩率_base", 250))   # 毫/亩/年
+    huang_li = int(cfg.get("皇庄亩率_base", 32))             # 毫/亩/年
     wei = state.metrics.get("皇威", 58)
 
     guo_ku_total = 0
@@ -70,13 +74,18 @@ def calc_province_fiscal(
         name         = str(row["name"])
         unrest       = int(row["unrest"])
         gentry       = int(row["gentry_resistance"])
-        tax_base     = int(row["tax_per_turn"])   # 省级月税基准（万两）
         fiscal: dict = json.loads(row["fiscal"] or "{}")
 
+        guan_min_tian = fiscal.get("guan_min_tian", 0)
         huang_tian   = fiscal.get("huang_tian", 0)
         liao_xiang   = fiscal.get("liao_xiang", 0)
         salt_tax     = fiscal.get("salt_tax", 0)
         commerce_tax = fiscal.get("commerce_tax", 0)
+
+        # 田赋账面月额 = 官民田万亩 × 田赋亩率(毫/亩/年) / 10000 / 12。
+        # 省可在 fiscal.tian_fu_li 覆盖全局亩率（江南重赋/边地轻赋/罢田赋=0）。
+        tian_fu_li = int(fiscal.get("tian_fu_li", tian_fu_li_global))
+        tian_fu_base = round(guan_min_tian * tian_fu_li / 10000 / 12)
 
         # 综合到账率（单一系数，上限1.0，改革后可接近满额）
         eff = _province_efficiency(fiscal, gentry, unrest)
@@ -85,19 +94,16 @@ def calc_province_fiscal(
         liao_eff = eff * (0.5 + wei / 200)
         liao_eff = max(0.10, min(1.00, liao_eff))
 
-        # 全部税种统一乘综合到账率
+        # 四税各乘综合到账率（田赋/辽饷账面已是亩率算出的月额，直接乘 eff）
+        tian_fu  = round(tian_fu_base * eff)
         liao     = round(liao_xiang   * liao_eff)
         salt     = round(salt_tax     * eff)
         commerce = round(commerce_tax * eff)
-        tian_fu_base = max(0, tax_base - liao_xiang - salt_tax - commerce_tax)
-        tian_fu  = round(tian_fu_base * eff)
 
-        # 皇庄 → 内库
-        # 基准由 fiscal_config.皇庄_base 统一覆盖（已校准）；
-        # huang_tian 字段用于记录没收藩王庄田后的增量：
-        #   增量月收 = 新增万亩 × _HUANG_TIAN_RENT_PER_WAN_MU
-        # 只有北直隶有 huang_tian > 0，增量=0（开局无新增），后续没收时才>基准
-        huang_income = 0  # 开局皇庄收入走 fiscal_config，此处不重复计算
+        # 皇庄 → 内库：huang_tian万亩 × 皇庄亩率(毫/亩/年) / 10000 / 12。
+        # 皇室直辖田征收力强，不吃官民田那套士绅瞒报/腐败折扣（不乘 eff）。
+        # 亩率走 fiscal_config.皇庄亩率_base(默认32毫≈0.0032两/亩)；皇庄_rate 整体倍率在 compute_budget_lines 施加。
+        huang_income = round(huang_tian * huang_li / 10000 / 12)
 
         province_guo = tian_fu + liao + salt + commerce
         guo_ku_total += province_guo
@@ -107,6 +113,7 @@ def calc_province_fiscal(
             "region_id":       region_id,
             "name":            name,
             "田赋":            tian_fu,
+            "田赋账面":         tian_fu_base,
             "辽饷":            liao,
             "盐税":            salt,
             "商税":            commerce,
@@ -145,10 +152,11 @@ def compute_budget_lines(db: GameDB, state: GameState) -> Dict[str, Dict[str, li
     budget["国库"]["expense"].append(
         {"name": "各军军饷", "amount": int(army_total), "note": "各军月度维护/军饷合计"}
     )
-    # 皇庄＝fiscal_config 基准（开局校准月额）＋ calc_province_fiscal 的没收藩田增量（开局 0）。
-    huang_base = round(int(cfg.get("皇庄_base", 20)) * cfg.get("皇庄_rate", 100) / 100)
+    # 皇庄＝calc_province_fiscal 按省 huang_tian×租率 实算总额（开局仅北直隶≈20万），
+    # 再乘 fiscal_config.皇庄_rate 作整体倍率（改革/没收可调）。皇庄_base 已废，不再叠加。
+    huang_total = round(nk_huang * cfg.get("皇庄_rate", 100) / 100)
     budget["内库"]["income"].append(
-        {"name": "皇庄", "amount": int(huang_base + nk_huang), "note": "皇庄月地租（基准+没收藩田增量）"}
+        {"name": "皇庄", "amount": int(huang_total), "note": "各省皇庄月地租（huang_tian×租率，皇室直辖不吃折扣）"}
     )
     for item in db.iter_budget_items():
         base_key = str(item["key"])

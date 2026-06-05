@@ -2,7 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { Crown, Loader2, X } from "lucide-react";
 import { api, streamChat } from "./api";
-import { AppointmentDrawer, ArmyDrawer, BuildingDrawer, CourtDrawer, EconomyDrawer, HaremDrawer, RegionDrawer } from "./components/drawers";
+import { AppointmentDrawer, ArmyDrawer, BuildingDrawer, CourtDrawer, EconomyDrawer, HaremDrawer, RegionDetailModal, RegionDrawer } from "./components/drawers";
 import { ExtractionModal } from "./components/extraction";
 import { GameMenuModal } from "./components/gameMenu";
 import { BudgetHover, CommandSlot, FullscreenModal, HUD_BG, HUD_SLOTS, LegacyBar, LongGoalsModal, QuadFrame } from "./components/hud";
@@ -841,9 +841,17 @@ function App() {
         onClose={guardClose(() => setRegionDrawerOpen(false))}
       />
 
+      {(() => {
+        const selRegion = selectedRegionId ? state.regions.find((r) => r.id === selectedRegionId) : null;
+        return selRegion ? (
+          <RegionDetailModal region={selRegion} onClose={() => setSelectedRegionId("")} />
+        ) : null;
+      })()}
+
       <BuildingDrawer
         regions={state.regions}
         mapNodes={mapNodes}
+        technologies={state.technologies}
         open={buildingDrawerOpen}
         onClose={guardClose(() => setBuildingDrawerOpen(false))}
       />

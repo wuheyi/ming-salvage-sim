@@ -77,6 +77,15 @@ export type Building = {
   origin: string;
 };
 
+export type Technology = {
+  id: string;
+  name: string;
+  category: string;
+  effect_summary: string;
+  status: string;
+  origin: string;
+};
+
 export type MapNode = {
   id: string;
   kind: "region" | "theater" | "external";
@@ -272,6 +281,7 @@ export type GameState = {
   events: EventItem[];
   regions: Region[];
   armies: Army[];
+  technologies: Technology[];
   map_nodes: MapNode[];
   ministers: Minister[];
   consorts: Minister[];

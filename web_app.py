@@ -675,6 +675,7 @@ class WebGame:
             if not detail:
                 continue
             region["tax_actual"] = int(detail["province_total"])
+            region["tax_per_turn"] = int(detail["田赋账面"])   # 田赋账面=官民田×亩率，覆盖库里旧列
             region["tax_efficiency"] = float(detail["efficiency"])
             region["tax_breakdown"] = {
                 "田赋": int(detail["田赋"]),
@@ -969,6 +970,7 @@ class WebGame:
             "events": [],
             "regions": regions,
             "armies": self.db.army_payload(),
+            "technologies": self.db.technology_payload(),
             "map_nodes": self.map_nodes(regions),
             "ministers": [
                 self.public_character(c)

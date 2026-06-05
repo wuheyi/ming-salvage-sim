@@ -1054,8 +1054,8 @@ class GameDB:
     # dynamic 税科目 → regions.fiscal 子字段映射。dynamic 税实收走 calc_province_fiscal
     # 读 region.fiscal（不读 fiscal_config 的 base），故对这些 key 做裁撤/调额必须同步改
     # 各省 fiscal 字段才真生效——否则只动目录不动钱（账目与叙事脱节）。
-    #   田赋无独立字段（=tax_per_turn 减其余三税的残差），裁撤走 tax_per_turn 压低；
-    #   皇庄收入真读 fiscal_config.皇庄_base，裁撤/调额改 config 即生效，不在本表。
+    #   田赋＝regions.tax_per_turn（官民田×田赋亩率的月额），裁撤走 scale_tian_fu 缩放；
+    #   皇庄收入＝各省 huang_tian×租率（flows 实算），调额改 huang_tian 或租率，不在本表。
     _DYNAMIC_REGION_FIELD = {
         "辽饷": "liao_xiang", "盐税": "salt_tax", "商税": "commerce_tax",
     }
@@ -1094,25 +1094,21 @@ class GameDB:
         return touched
 
     def scale_tian_fu(self, ratio: float) -> int:
-        """田赋无独立字段（=tax_per_turn 减辽饷/盐税/商税的残差）。按 ratio 缩放田赋部分：
-        新 tax_per_turn = 三税之和 + 田赋残差×ratio。ratio=0 即罢田赋（仅留三税基）。
+        """田赋＝官民田×田赋亩率(fiscal_config 全局 或 省 fiscal.tian_fu_li 覆盖)。按 ratio 缩放各省亩率：
+        在每省 fiscal 写 tian_fu_li = 全局亩率×ratio（覆盖全局）。ratio=0 即罢田赋（辽饷/盐/商各走自己字段不受影响）。
         返回被改动的省数。"""
+        cfg = self.get_fiscal_config()
+        global_li = int(cfg.get("田赋亩率_base", 250))
+        new_li = max(0, round(global_li * ratio))
         touched = 0
-        for row in self.conn.execute(
-            "SELECT id, tax_per_turn, fiscal FROM regions"
-        ).fetchall():
+        for row in self.conn.execute("SELECT id, fiscal FROM regions").fetchall():
             fiscal: dict = json.loads(str(row["fiscal"] or "{}"))
-            others = (int(fiscal.get("liao_xiang", 0) or 0)
-                      + int(fiscal.get("salt_tax", 0) or 0)
-                      + int(fiscal.get("commerce_tax", 0) or 0))
-            tax = int(row["tax_per_turn"])
-            tian_fu = max(0, tax - others)
-            new_tax = others + max(0, round(tian_fu * ratio))
-            if new_tax == tax:
+            if int(fiscal.get("tian_fu_li", global_li)) == new_li:
                 continue
+            fiscal["tian_fu_li"] = new_li
             self.conn.execute(
-                "UPDATE regions SET tax_per_turn = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (new_tax, str(row["id"])),
+                "UPDATE regions SET fiscal = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (json.dumps(fiscal, ensure_ascii=False), str(row["id"])),
             )
             touched += 1
         if touched:
@@ -2395,9 +2391,9 @@ class GameDB:
                 held = f"【已为{self.power_display_name(row['controlled_by'])}所据】"
             parts.append(
                 f"{row['name']}{held}：民心{row['public_support']}、动乱{row['unrest']}、"
-                f"粮食{row['grain_security']}万石、税{format_money(monthly_amount(int(row['tax_per_turn'])))}/{TURN_UNIT}，{row['status']}"
+                f"粮食{row['grain_security']}万石、田赋{format_money(monthly_amount(int(row['tax_per_turn'])))}/{TURN_UNIT}，{row['status']}"
             )
-        return f"地区警讯：{'；'.join(parts)}。两京十三省账面{TURN_UNIT}税合计{format_money(monthly_amount(total_tax_value))}。"
+        return f"地区警讯：{'；'.join(parts)}。两京十三省田赋账面合计{format_money(monthly_amount(total_tax_value))}/{TURN_UNIT}（不含辽饷/盐/商）。"
 
     def region_detail(self, raw_name: str) -> str:
         region_id = match_region_id_from_text(raw_name, self.content.regions)
@@ -2413,7 +2409,7 @@ class GameDB:
             f"{row['name']}（{row['kind']}）{held}：人口{row['population']}万人，"
             f"民心{row['public_support']}，动乱{row['unrest']}，粮食{row['grain_security']}万石，"
             f"田亩{row['registered_land']}万亩，隐田{row['hidden_land']}万亩，"
-            f"账面税收{format_money(monthly_amount(int(row['tax_per_turn'])))}/{TURN_UNIT}，"
+            f"田赋账面{format_money(monthly_amount(int(row['tax_per_turn'])))}/{TURN_UNIT}（另有辽饷/盐/商各计），"
             f"士绅阻力{row['gentry_resistance']}，军事压力{row['military_pressure']}。"
             f"天灾：{row['natural_disaster']}；人祸：{row['human_disaster']}；状态：{row['status']}"
         )

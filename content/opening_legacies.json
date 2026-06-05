@@ -44,7 +44,7 @@
       },
       "narrative_hint": "天下田亩飞洒诡寄、隐占成风，鱼鳞册久不更，税基日蹙",
       "clear_gate": {
-        "region.beizhili|nanzhili|shandong|shanxi|henan|shaanxi|zhejiang|jiangxi|huguang|sichuan|fujian|guangdong|guangxi|yunnan|guizhou.hidden_land.sum": "<=1400"
+        "region.beizhili|nanzhili|shandong|shanxi|henan|shaanxi|zhejiang|jiangxi|huguang|sichuan|fujian|guangdong|guangxi|yunnan|guizhou.hidden_land.sum": "<=14000"
       },
       "clear_narrative": "清丈新法推行，隐田尽入鱼鳞册，田赋岁课大增"
     },

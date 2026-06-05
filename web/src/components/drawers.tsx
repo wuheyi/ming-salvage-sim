@@ -2,7 +2,7 @@ import React from "react";
 import { Crown, Landmark, MapPinned, ScrollText, Star, Swords, X } from "lucide-react";
 import { MinisterPortrait, PortraitUploadButton, RightDrawer, cacheBust, courtSlots, loadCourtPos, saveCourtPos, snapToSlot } from "./hud";
 import { formatMoney, formatSignedMoney, regionMonthlyTax } from "../format";
-import type { Army, Building, GameState, MapNode, Minister, Region } from "../types";
+import type { Army, Building, GameState, MapNode, Minister, Region, Technology } from "../types";
 
 export function MinisterCardList({
   list,
@@ -342,14 +342,11 @@ export function RegionDrawer({
   const [q, setQ] = React.useState("");
   const mingRegions = regions.filter((r) => (r.controlled_by || "ming") === "ming");
   const filtered = q ? mingRegions.filter((r) => r.name.includes(q)) : mingRegions;
-  const selected = mingRegions.find((r) => r.id === selectedRegionId) || null;
   const regionTone = (r: Region) => {
     if (r.unrest >= 70) return "danger";
     if (r.unrest >= 45) return "warn";
     return "";
   };
-  const fiscalValue = (r: Region, key: string) => Number(r.fiscal?.[key] ?? 0);
-  const taxPart = (r: Region, key: string) => Number(r.tax_breakdown?.[key] ?? 0);
   return (
     <RightDrawer open={open} onClose={onClose} title="省份" icon={<MapPinned size={17} />} extraClass="right-drawer-region">
       <div className="right-drawer-search">
@@ -370,49 +367,73 @@ export function RegionDrawer({
         ))}
         {!filtered.length && <div className="empty-note">{q ? "无匹配结果。" : "暂无大明省份记录。"}</div>}
       </div>
-      {selected && (
-        <div className="right-drawer-detail">
-          <div className="right-drawer-detail-title">
-            {selected.name}
-            <button className="right-drawer-detail-close" onClick={() => onSelectRegion("")} aria-label="关闭详情"><X size={14} /></button>
+    </RightDrawer>
+  );
+}
+
+export function RegionDetailModal({
+  region,
+  onClose,
+}: {
+  region: Region;
+  onClose: () => void;
+}) {
+  const fiscalValue = (r: Region, key: string) => Number(r.fiscal?.[key] ?? 0);
+  const taxPart = (r: Region, key: string) => Number(r.tax_breakdown?.[key] ?? 0);
+  return (
+    <div className="region-modal-layer" role="dialog" aria-modal="true" aria-label={region.name}>
+      <div className="region-modal-scrim" onClick={onClose} />
+      <div className="region-modal">
+        <div className="region-modal-header">
+          <div>
+            <h2>{region.name}</h2>
+            <span>{region.kind} · {region.controlled_by || "ming"}</span>
           </div>
+          <button className="region-modal-close" aria-label="关闭" onClick={onClose}><X size={18} /></button>
+        </div>
+        <div className="region-modal-body">
           <table className="intel-table">
             <tbody>
-              <tr><th>编号</th><td>{selected.id}</td><th>类型</th><td>{selected.kind}</td></tr>
-              <tr><th>归属</th><td>{selected.controlled_by || "ming"}</td><th>人口</th><td>{selected.population}万</td></tr>
-              <tr><th>民心</th><td>{selected.public_support}</td><th>动乱</th><td>{selected.unrest}</td></tr>
-              <tr><th>粮食</th><td>{selected.grain_security}万石</td><th>边防压力</th><td>{selected.military_pressure}</td></tr>
-              <tr><th>在册田亩</th><td>{selected.registered_land}万亩</td><th>隐田</th><td>{selected.hidden_land}万亩</td></tr>
-              <tr><th>官民田</th><td>{fiscalValue(selected, "guan_min_tian")}万亩</td><th>藩王庄田</th><td>{fiscalValue(selected, "wang_tian")}万亩</td></tr>
-              <tr><th>皇庄</th><td>{fiscalValue(selected, "huang_tian")}万亩</td><th>士绅阻力</th><td>{selected.gentry_resistance}</td></tr>
-              <tr><th>腐败度</th><td>{fiscalValue(selected, "corruption")}</td><th>实收效率</th><td>{Math.round((selected.tax_efficiency ?? 0) * 100)}%</td></tr>
-              <tr><th>账面税基</th><td>{selected.tax_per_turn}万/月</td><th>实收</th><td>{regionMonthlyTax(selected)}万/月</td></tr>
-              <tr><th>田赋实收</th><td>{taxPart(selected, "田赋")}万</td><th>辽饷实收</th><td>{taxPart(selected, "辽饷")}万</td></tr>
-              <tr><th>盐税实收</th><td>{taxPart(selected, "盐税")}万</td><th>商税实收</th><td>{taxPart(selected, "商税")}万</td></tr>
-              <tr><th>辽饷基数</th><td>{fiscalValue(selected, "liao_xiang")}万/月</td><th>盐税基数</th><td>{fiscalValue(selected, "salt_tax")}万/月</td></tr>
-              <tr><th>商税基数</th><td>{fiscalValue(selected, "commerce_tax")}万/月</td><th>皇庄实收</th><td>{taxPart(selected, "皇庄")}万</td></tr>
-              <tr><th>天灾</th><td colSpan={3}>{selected.natural_disaster}</td></tr>
-              <tr><th>人祸</th><td colSpan={3}>{selected.human_disaster}</td></tr>
-              <tr><th>状况</th><td colSpan={3}>{selected.status}</td></tr>
+            <tr><th>编号</th><td>{region.id}</td><th>类型</th><td>{region.kind}</td></tr>
+            <tr><th>归属</th><td>{region.controlled_by || "ming"}</td><th>人口</th><td>{region.population}万</td></tr>
+            <tr><th>民心</th><td>{region.public_support}</td><th>动乱</th><td>{region.unrest}</td></tr>
+            <tr><th>粮食年产</th><td>{fiscalValue(region, "grain_output")}万石</td><th>存粮<span className="intel-th-note">（仓储）</span></th><td>{region.grain_security}万石</td></tr>
+            <tr><th>边防压力</th><td colSpan={3}>{region.military_pressure}</td></tr>
+            <tr><th className="intel-section-th" colSpan={4}>在册田亩 {region.registered_land}万亩 · 黄册登记田（官民田＋藩王庄田＋皇庄），仅官民田纳国库田赋</th></tr>
+            <tr><th>├ 官民田<span className="intel-th-note">（→国库田赋）</span></th><td>{fiscalValue(region, "guan_min_tian")}万亩</td><th>├ 藩王庄田<span className="intel-th-note">（免税）</span></th><td>{fiscalValue(region, "wang_tian")}万亩</td></tr>
+            <tr><th>└ 皇庄<span className="intel-th-note">（→内库地租）</span></th><td>{fiscalValue(region, "huang_tian")}万亩</td><th>隐田<span className="intel-th-note">（缙绅诡寄＋藩王侵占，册外逃赋）</span></th><td>{region.hidden_land}万亩</td></tr>
+            <tr><th>士绅阻力</th><td>{region.gentry_resistance}</td><th>腐败度</th><td>{fiscalValue(region, "corruption")}</td></tr>
+            <tr><th className="intel-section-th" colSpan={4}>税收 · 田赋亩率 {fiscalValue(region, "tian_fu_li") || 250}毫/亩·年（{((fiscalValue(region, "tian_fu_li") || 250) / 10000).toFixed(3)}两）· 实收效率 {Math.round((region.tax_efficiency ?? 0) * 100)}%</th></tr>
+            <tr><th>田赋账面</th><td>{region.tax_per_turn}万/月</td><th>四税实收</th><td>{regionMonthlyTax(region)}万/月</td></tr>
+            <tr><th>田赋实收</th><td>{taxPart(region, "田赋")}万</td><th>辽饷实收</th><td>{taxPart(region, "辽饷")}万</td></tr>
+            <tr><th>盐税实收</th><td>{taxPart(region, "盐税")}万</td><th>商税实收</th><td>{taxPart(region, "商税")}万</td></tr>
+            <tr><th>辽饷基数</th><td>{fiscalValue(region, "liao_xiang")}万/月</td><th>盐税基数</th><td>{fiscalValue(region, "salt_tax")}万/月</td></tr>
+            <tr><th>商税基数</th><td>{fiscalValue(region, "commerce_tax")}万/月</td><th>皇庄地租<span className="intel-th-note">（内库）</span></th><td>{taxPart(region, "皇庄")}万</td></tr>
+            <tr><th>天灾</th><td colSpan={3}>{region.natural_disaster}</td></tr>
+            <tr><th>人祸</th><td colSpan={3}>{region.human_disaster}</td></tr>
+            <tr><th>状况</th><td colSpan={3}>{region.status}</td></tr>
             </tbody>
           </table>
         </div>
-      )}
-    </RightDrawer>
+      </div>
+    </div>
   );
 }
 
 export function BuildingDrawer({
   regions,
   mapNodes,
+  technologies,
   open,
   onClose,
 }: {
   regions: Region[];
   mapNodes: MapNode[];
+  technologies: Technology[];
   open: boolean;
   onClose: () => void;
 }) {
+  const [tab, setTab] = React.useState<"建筑" | "科技">("建筑");
   const allBuildings: (Building & { regionName: string })[] = [];
   for (const node of mapNodes) {
     if (!node.buildings) continue;
@@ -427,34 +448,62 @@ export function BuildingDrawer({
   const filtered = allBuildings
     .filter((b) => !filterRegion || b.regionName === filterRegion)
     .filter((b) => !q || b.name.includes(q) || b.category.includes(q));
+  const techFiltered = (technologies || []).filter((t) => !q || t.name.includes(q) || t.category.includes(q));
   return (
-    <RightDrawer open={open} onClose={onClose} title="建筑" icon={<Landmark size={17} />} extraClass="right-drawer-building">
-      <div className="right-drawer-search">
-        <input className="right-drawer-search-input" placeholder="搜索建筑名/类别…" value={q} onChange={(e) => setQ(e.target.value)} />
-      </div>
-      <div className="right-drawer-filter">
-        <select
-          value={filterRegion}
-          onChange={(e) => setFilterRegion(e.target.value)}
-          className="right-drawer-select"
-        >
-          <option value="">全部省份</option>
-          {regionNames.map((n) => <option key={n} value={n}>{n}</option>)}
-        </select>
-      </div>
-      <div className="right-drawer-list">
-        {filtered.map((b) => (
-          <div key={b.id} className="right-drawer-row right-drawer-row-building">
-            <span className="right-drawer-row-name">{b.name}</span>
-            <span className="right-drawer-row-meta">{b.regionName} · {b.category} Lv{b.level}</span>
-            <span className="right-drawer-row-sub">
-              完好{b.condition} · 维护{b.maintenance}万/月
-              {b.output_metric ? ` · ${b.output_metric}+${b.output_amount}` : ""}
-            </span>
-          </div>
+    <RightDrawer open={open} onClose={onClose} title="工部" icon={<Landmark size={17} />} extraClass="right-drawer-building">
+      <div className="segmented right-drawer-segmented">
+        {(["建筑", "科技"] as const).map((t) => (
+          <button key={t} className={tab === t ? "active" : ""} onClick={() => setTab(t)}>{t}</button>
         ))}
-        {!filtered.length && <div className="empty-note">{q || filterRegion ? "无匹配结果。" : "暂无建筑记录。"}</div>}
       </div>
+      <div className="right-drawer-search">
+        <input
+          className="right-drawer-search-input"
+          placeholder={tab === "建筑" ? "搜索建筑名/类别…" : "搜索科技名/类别…"}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+      </div>
+      {tab === "建筑" ? (
+        <>
+          <div className="right-drawer-filter">
+            <select
+              value={filterRegion}
+              onChange={(e) => setFilterRegion(e.target.value)}
+              className="right-drawer-select"
+            >
+              <option value="">全部省份</option>
+              {regionNames.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <div className="right-drawer-list">
+            {filtered.map((b) => (
+              <div key={b.id} className="right-drawer-row right-drawer-row-building">
+                <span className="right-drawer-row-name">{b.name}</span>
+                <span className="right-drawer-row-meta">{b.regionName} · {b.category} Lv{b.level}</span>
+                <span className="right-drawer-row-sub">
+                  完好{b.condition} · 维护{b.maintenance}万/月
+                  {b.output_metric ? ` · ${b.output_metric}+${b.output_amount}` : ""}
+                </span>
+              </div>
+            ))}
+            {!filtered.length && <div className="empty-note">{q || filterRegion ? "无匹配结果。" : "暂无建筑记录。"}</div>}
+          </div>
+        </>
+      ) : (
+        <div className="right-drawer-list">
+          {techFiltered.map((t) => (
+            <div key={t.id} className="right-drawer-row right-drawer-row-building">
+              <span className="right-drawer-row-name">{t.name}</span>
+              <span className="right-drawer-row-meta">{t.category}</span>
+              {(t.effect_summary || t.status) && (
+                <span className="right-drawer-row-sub">{t.effect_summary || t.status}</span>
+              )}
+            </div>
+          ))}
+          {!techFiltered.length && <div className="empty-note">{q ? "无匹配结果。" : "暂无已解锁科技。"}</div>}
+        </div>
+      )}
     </RightDrawer>
   );
 }

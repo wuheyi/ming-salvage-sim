@@ -1651,6 +1651,117 @@ select:focus-visible {
   font-size: 0.78rem;
 }
 
+.region-modal-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.region-modal-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.region-modal {
+  position: relative;
+  width: min(520px, 92vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  color: #1a1a1a;
+  border-radius: 8px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.region-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.region-modal-header h2 {
+  margin: 0;
+  font-size: 0.98rem;
+  color: #1a1a1a;
+}
+
+.region-modal-header span {
+  font-size: 0.78rem;
+  color: #888;
+}
+
+.region-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: #555;
+  cursor: pointer;
+}
+
+.region-modal-close:hover {
+  background: #f0f0f0;
+}
+
+.region-modal-body {
+  overflow: auto;
+  padding: 10px 12px 12px;
+}
+
+.region-modal-body .intel-table {
+  font-size: 0.72rem;
+}
+
+.region-modal-body .intel-table th,
+.region-modal-body .intel-table td {
+  padding: 3px 6px;
+  border-color: #e3e3e3;
+  line-height: 1.25;
+}
+
+.region-modal-body .intel-table tbody th {
+  width: 4em;
+  color: #555;
+  font-weight: 600;
+  background: #f5f1e8;
+  white-space: nowrap;
+}
+
+.region-modal-body .intel-table td {
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.region-modal-body .intel-table .intel-section-th {
+  background: #ece3cf;
+  color: #5a4422;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: left;
+  width: auto;
+  white-space: normal;
+}
+
+.region-modal-body .intel-table .intel-th-note {
+  margin-left: 3px;
+  color: #999;
+  font-weight: 400;
+  font-size: 0.62rem;
+}
+
 .intel-table th,
 .intel-table td {
   padding: 4px 7px;
@@ -6497,11 +6608,23 @@ button:disabled {
     radial-gradient(circle at 50% 45%, rgba(170, 190, 180, 0.25), transparent 55%),
     linear-gradient(160deg, #aeb9b0 0%, #9fb0ad 40%, #8ea7a8 100%) !important;
 }
-.hud2-issue-quad { z-index: 5; }
+.hud2-issue-quad { z-index: 5; overflow: hidden; }
 .hud2-issue-quad .situation-panel {
   position: absolute; inset: 0; width: 100%; height: 100%;
-  margin: 0; max-height: none; overflow: auto;
+  margin: 0; max-height: none; overflow: hidden;
+  display: flex; flex-direction: column;
   background: transparent; border: none; box-shadow: none; backdrop-filter: none;
+  padding: 4% 6%;
+}
+.hud2-issue-quad .situation-closed-list,
+.hud2-issue-quad .situation-group {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(95, 60, 24, 0.55) rgba(88, 55, 24, 0.12);
+}
+.hud2-issue-quad .situation-list {
+  min-height: 0;
 }
 /* 底图局势区：行背景透明、字体缩小（底图已有标题/纹理）*/
 .hud2-issue-quad .situation-row {

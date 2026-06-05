@@ -254,7 +254,7 @@ export function RightDrawer({
 }
 
 // ── 新 HUD 底图坑位坐标（相对底图百分比，见 web/public/ui/exact/hud-slots.json）──
-export const HUD_BG = "/ui/exact/hud-compact-v2.png";
+export const HUD_BG = "/ui/exact/hud-compact-v3-issue-scroll.png";
 
 export const HUD_SLOTS = {
   顶栏: {
@@ -291,7 +291,7 @@ export const HUD_SLOTS = {
     拟诏: { left: "83.9%", top: "92.32%" },
   },
   地图四角: { tl: [17.89, 12.04], tr: [86.95, 12.04], br: [92.13, 82.67], bl: [13.9, 82.67] },
-  局势四角: { tl: [3.14, 22.56], tr: [15.06, 22.56], br: [14.85, 82.1], bl: [0.95, 82.1] },
+  局势四角: { tl: [3.14, 22.56], tr: [15.06, 22.56], br: [14.65, 78.8], bl: [1.12, 78.8] },
 } as const;
 
 
