@@ -242,7 +242,7 @@ function App() {
     }
   }, [state, closedShown]);
 
-  // 新回合进入时拉取全部密令，有 active 密令则弹密令进度弹窗（邸报关闭后显示）
+  // 新回合进入时拉取全部密令，更新 HUD 数量；详情由玩家自行点“密令”查看。
   React.useEffect(() => {
     if (!state) return;
     const currentTurn = state.turn.turn;
@@ -250,10 +250,6 @@ function App() {
     api<{ orders: SecretOrder[] }>("/api/secret_orders")
       .then(({ orders }) => {
         setSecretOrders(orders);
-        if (orders.some(o => o.status === "active" || o.status === "pending_review")) {
-          // 延迟 400ms，避免与邸报弹窗争抢
-          setTimeout(() => setActiveModal("secret_orders"), 400);
-        }
         setSecretOrderShown(currentTurn);
       })
       .catch(() => {/* 失败静默 */});
@@ -524,8 +520,8 @@ function App() {
     }
   };
 
-  const sendCourtChat = async (visibleMinisters: Minister[]) => {
-    const message = courtChatInput.trim();
+  const sendCourtChat = async (visibleMinisters: Minister[], overrideMessage?: string) => {
+    const message = (overrideMessage ?? courtChatInput).trim();
     if (!message) return;
     const speakers = visibleMinisters
       .filter((m) => canAttendCourtChat(m) && courtChatRosterSelection.includes(m.name))

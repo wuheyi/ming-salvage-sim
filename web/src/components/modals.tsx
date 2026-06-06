@@ -770,11 +770,18 @@ export function EdictModal({
 }) {
   const pendingDirectives = state.directives.filter((d) => d.status === "pending");
   const draftDirectives = state.directives.filter((d) => d.status !== "pending");
+  const allDirectives = [...pendingDirectives, ...draftDirectives];
   const hasPending = pendingDirectives.length > 0;
   const [decreeDraft, setDecreeDraft] = React.useState(decree);
+  const [expandedPendingId, setExpandedPendingId] = React.useState<number | null>(null);
   React.useEffect(() => {
     setDecreeDraft(decree);
   }, [decree]);
+  React.useEffect(() => {
+    if (expandedPendingId && !pendingDirectives.some((d) => d.id === expandedPendingId)) {
+      setExpandedPendingId(null);
+    }
+  }, [expandedPendingId, pendingDirectives]);
 
   // 分幕：随 decree/report 态切。无诏文=御案理政；有诏文未结算=诏书御览；已结算=颁诏奏章。
   const phase: "desk" | "review" | "issued" = report ? "issued" : decree ? "review" : "desk";
@@ -835,61 +842,77 @@ export function EdictModal({
     <div className="edict-stage edict-stage-desk">
       <div className="desk-columns">
         <section className="desk-pane desk-memorials">
-          {hasPending && (
-            <div className="pending-directives" role="region" aria-label="待核定大臣拟旨">
-              <div className="pending-directives-head">
-                <h3>朱批待定 · 大臣拟旨（{pendingDirectives.length}）</h3>
-                {pendingDirectives.length > 1 && (
-                  <button className="vermilion-yes pending-confirm-all" onClick={onConfirmAllDirectives} disabled={!!busy}>
-                    <Check size={14} />全部准奏
-                  </button>
-                )}
-              </div>
-              {pendingDirectives.map((directive) => (
-                <div className="directive-item pending" key={directive.id}>
-                  <div className="directive-head">
-                    <b>#{directive.id}</b>
-                    <span>{directive.source}</span>
-                  </div>
-                  <p>{directive.text}</p>
-                  {directive.notes ? <small>{directive.notes}</small> : null}
-                  <div className="directive-tools">
-                    <button className="vermilion-yes" onClick={() => onConfirmDirective(directive.id)} disabled={!!busy}><Check size={14} />准</button>
-                    <button className="vermilion-no" onClick={() => onRejectDirective(directive.id)} disabled={!!busy}><X size={14} />驳</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <h2>本月指令{draftDirectives.length ? ` · ${draftDirectives.length} 道` : ""}</h2>
+          <div className="directive-list-head">
+            <h2>本月指令{allDirectives.length ? ` · ${allDirectives.length} 道` : ""}</h2>
+            {pendingDirectives.length > 1 && (
+              <button className="vermilion-yes pending-confirm-all" onClick={onConfirmAllDirectives} disabled={!!busy}>
+                <Check size={14} />全部准奏
+              </button>
+            )}
+          </div>
           <div className="directive-list">
-            {draftDirectives.map((directive) => (
-              <div className="directive-item" key={directive.id}>
-                <div className="directive-head">
-                  <b>#{directive.id}</b>
-                  <span>{directive.source}</span>
-                </div>
-                {editingDirectiveId === directive.id ? (
-                  <div className="directive-edit">
-                    <textarea value={editingDirectiveText} onChange={(event) => onEditingTextChange(event.target.value)} />
-                    <div>
-                      <button className="icon-button" onClick={() => onSaveDirective(directive)} aria-label="保存草案"><Check size={15} /></button>
-                      <button className="icon-button" onClick={onCancelEdit} aria-label="取消修改"><X size={15} /></button>
-                    </div>
+            {allDirectives.map((directive) => (
+              directive.status === "pending" ? (
+                <div className={`directive-list-row pending${expandedPendingId === directive.id ? " expanded" : ""}`} key={directive.id}>
+                  <button
+                    type="button"
+                    className="directive-list-main"
+                    onClick={() => {
+                      const nextId = expandedPendingId === directive.id ? null : directive.id;
+                      setExpandedPendingId(nextId);
+                      if (nextId !== null) onStartEdit(directive);
+                    }}
+                  >
+                    <span className="directive-list-no">#{directive.id}</span>
+                    <span className="directive-list-text">{directive.text}</span>
+                    <span className="directive-list-status pending">待批</span>
+                    <span className="directive-list-source">{directive.source}</span>
+                  </button>
+                  <div className="directive-list-actions">
+                    <button className="vermilion-yes" onClick={() => { setExpandedPendingId(null); onConfirmDirective(directive.id); }} disabled={!!busy}><Check size={14} />准</button>
+                    <button className="vermilion-no" onClick={() => { setExpandedPendingId(null); onRejectDirective(directive.id); }} disabled={!!busy}><X size={14} />驳</button>
                   </div>
-                ) : (
-                  <>
-                    <p>{directive.text}</p>
-                    {directive.notes ? <small>{directive.notes}</small> : null}
-                    <div className="directive-tools">
-                      <button onClick={() => onStartEdit(directive)}><Edit3 size={14} />改</button>
-                      <button onClick={() => onDeleteDirective(directive.id)}><Trash2 size={14} />删</button>
+                  {expandedPendingId === directive.id ? (
+                    <div className="directive-list-detail">
+                      {directive.notes ? <small>{directive.notes}</small> : null}
+                      <textarea value={editingDirectiveText} onChange={(event) => onEditingTextChange(event.target.value)} />
+                      <div className="directive-edit-actions">
+                        <button className="icon-button" onClick={() => { setExpandedPendingId(null); onSaveDirective(directive); }} aria-label="保存拟旨"><Check size={15} /></button>
+                        <button className="icon-button" onClick={() => { setExpandedPendingId(null); onCancelEdit(); }} aria-label="取消修改"><X size={15} /></button>
+                      </div>
                     </div>
-                  </>
-                )}
-              </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className={`directive-list-row${editingDirectiveId === directive.id ? " expanded" : ""}`} key={directive.id}>
+                  <button
+                    type="button"
+                    className="directive-list-main"
+                    onClick={() => onStartEdit(directive)}
+                  >
+                    <span className="directive-list-no">#{directive.id}</span>
+                    <span className="directive-list-text">{directive.text}</span>
+                    <span className="directive-list-status draft">草案</span>
+                    <span className="directive-list-source">{directive.source}</span>
+                  </button>
+                  <div className="directive-list-actions">
+                    <button onClick={() => onStartEdit(directive)} disabled={!!busy}><Edit3 size={14} />改</button>
+                    <button onClick={() => onDeleteDirective(directive.id)} disabled={!!busy}><Trash2 size={14} />删</button>
+                  </div>
+                  {editingDirectiveId === directive.id ? (
+                    <div className="directive-list-detail">
+                      {directive.notes ? <small>{directive.notes}</small> : null}
+                      <textarea value={editingDirectiveText} onChange={(event) => onEditingTextChange(event.target.value)} />
+                      <div className="directive-edit-actions">
+                        <button className="icon-button" onClick={() => onSaveDirective(directive)} aria-label="保存草案"><Check size={15} /></button>
+                        <button className="icon-button" onClick={onCancelEdit} aria-label="取消修改"><X size={15} /></button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )
             ))}
-            {!draftDirectives.length && !hasPending && <div className="empty-note">本月不可空过。请先召见大臣，或在右侧御笔自拟一道指令。</div>}
+            {!allDirectives.length && <div className="empty-note">本月不可空过。请先召见大臣，或在右侧御笔自拟一道指令。</div>}
           </div>
         </section>
 

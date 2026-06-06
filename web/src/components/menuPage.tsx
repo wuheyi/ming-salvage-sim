@@ -381,7 +381,7 @@ export function SaveListModal({
   };
   return (
     <div className="menu-modal-bg" onClick={onClose}>
-      <div className="menu-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="menu-modal menu-save-modal" onClick={(e) => e.stopPropagation()}>
         <h2>加载存档</h2>
         {delErr ? <div className="menu-error">{delErr}</div> : null}
         {hasAny ? (

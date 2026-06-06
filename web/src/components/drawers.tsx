@@ -2,7 +2,7 @@ import React from "react";
 import { Crown, Landmark, MapPinned, MessageSquareText, ScrollText, Star, Swords, X } from "lucide-react";
 import { MinisterPortrait, PortraitUploadButton, RightDrawer, cacheBust, courtSlots, loadCourtPos, saveCourtPos, snapToSlot } from "./hud";
 import { formatMoney, formatSignedMoney, regionMonthlyTax } from "../format";
-import type { Army, Building, CourtChatMessage, GameState, MapNode, Minister, Region, Technology } from "../types";
+import type { Army, Building, CourtChatMessage, GameState, Issue, MapNode, Minister, Region, Technology } from "../types";
 
 const canAttendCourtChat = (minister: Minister) => {
   const office = (minister.office || "").trim();
@@ -704,7 +704,7 @@ export function CourtDrawer({
   courtChatSelectedMinisters: string[];
   onCourtChatSelectedMinistersChange: React.Dispatch<React.SetStateAction<string[]>>;
   onCourtChatInputChange: (value: string) => void;
-  onSendCourtChat: (ministers: Minister[]) => void;
+  onSendCourtChat: (ministers: Minister[], overrideMessage?: string) => void;
   onRefreshCourtChat: () => void;
   onCloseCourtChatPanel: () => void;
   onChooseCourtChatDecision: (option: string) => void;
@@ -712,7 +712,6 @@ export function CourtDrawer({
   const [q, setQ] = React.useState("");
   const [showHistory, setShowHistory] = React.useState(false);
   const [courtChatStep, setCourtChatStep] = React.useState<"closed" | "composing">("closed");
-  const [courtChatRosterOpen, setCourtChatRosterOpen] = React.useState(false);
   const courtChatPanelBodyRef = React.useRef<HTMLDivElement | null>(null);
   const cleanCourtChatText = (value: string) => value.replace(/\s*<<<臣:([^>\n]+)>>+\s*/g, "\n$1：").trim();
   const filtered = q ? ministers.filter((m) => m.name.includes(q) || (m.office || "").includes(q)) : ministers;
@@ -721,24 +720,11 @@ export function CourtDrawer({
   const selectedNames = courtChatSelectedMinisters.filter((name) => activeNames.includes(name));
   const courtChatAvailable = ministerGroup === "内阁+六部" || ministerGroup === "收藏";
   const canChat = open && courtChatAvailable && selectedNames.length > 0;
-  const toggleCourtMinister = (name: string) => {
-    onCourtChatSelectedMinistersChange((current) => {
-      const activeSet = new Set(activeNames);
-      const scoped = current.filter((n) => activeSet.has(n));
-      return scoped.includes(name) ? scoped.filter((n) => n !== name) : [...scoped, name];
-    });
-  };
-  const selectAllCourtMinisters = () => onCourtChatSelectedMinistersChange(activeNames);
-  const clearCourtMinisters = () => onCourtChatSelectedMinistersChange([]);
-  const startCourtChat = () => {
-    if (!courtChatAvailable || !activeFiltered.length) return;
-    if (!selectedNames.length) selectAllCourtMinisters();
-    setCourtChatRosterOpen(true);
-  };
-  const confirmCourtRoster = () => {
-    if (!selectedNames.length) return;
-    setCourtChatRosterOpen(false);
-    setCourtChatStep("composing");
+  const activeIssues = _state.issues.filter((i) => i.kind === "situation" || i.kind === "initiative");
+  const pickCourtChatTopic = (issue: Issue) => {
+    const opener = `众卿，关于「${issue.title}」一事，${issue.stage_text}。诸卿有何对策？`;
+    onCourtChatInputChange(opener);
+    onSendCourtChat(activeFiltered, opener);
   };
   React.useEffect(() => {
     if (!open) return;
@@ -750,16 +736,12 @@ export function CourtDrawer({
     el.scrollTop = el.scrollHeight;
   }, [courtChatPanelOpen, courtChatLiveMessages]);
   React.useEffect(() => {
-    if (!courtChatAvailable) {
-      setCourtChatRosterOpen(false);
+    if (!courtChatAvailable || !activeFiltered.length) {
       setCourtChatStep("closed");
       return;
     }
-    onCourtChatSelectedMinistersChange((current) => {
-      const activeSet = new Set(activeNames);
-      const scoped = current.filter((name) => activeSet.has(name));
-      return scoped.length ? scoped : activeNames;
-    });
+    onCourtChatSelectedMinistersChange(activeNames);
+    setCourtChatStep("composing");
   }, [courtChatAvailable, ministerGroup, open, activeNames.join("|"), onCourtChatSelectedMinistersChange]);
   return (
     <>
@@ -773,15 +755,6 @@ export function CourtDrawer({
           <button className="icon-button" aria-label="收起" onClick={onClose}><X size={16} /></button>
         </div>
         <div className="segmented">
-          <button
-            className="court-chat-tab-button"
-            type="button"
-            disabled={!courtChatAvailable || !activeFiltered.length}
-            onClick={startCourtChat}
-            title={courtChatAvailable ? "召集当前页大臣开朝会" : "朝会请在内阁+六部或收藏页召集"}
-          >
-            朝会
-          </button>
           {["内阁+六部", "收藏", "在职", "全部"].map((group) => (
             <button
               className={ministerGroup === group ? "active" : ""}
@@ -847,42 +820,6 @@ export function CourtDrawer({
             </section>
           </>
         ) : null}
-        {courtChatRosterOpen ? (
-          <>
-            <div className="court-chat-roster-scrim" aria-hidden="true" />
-            <section className="court-chat-roster-modal" role="dialog" aria-modal="true" aria-label="召集朝会">
-              <header className="court-chat-roster-modal-head">
-                <div>
-                  <b>召集朝会</b>
-                  <span>{ministerGroup} · 只列可参议在职大臣</span>
-                </div>
-                <button className="icon-button" onClick={() => setCourtChatRosterOpen(false)} aria-label="关闭召集名单"><X size={15} /></button>
-              </header>
-              <div className="court-chat-roster-modal-actions">
-                <button type="button" onClick={selectAllCourtMinisters}>全选当前页</button>
-                <button type="button" onClick={clearCourtMinisters}>清空</button>
-                <span>已选 {selectedNames.length} / {activeFiltered.length}</span>
-              </div>
-              <div className="court-chat-roster-modal-list">
-                {activeFiltered.map((m) => (
-                  <button
-                    key={m.name}
-                    type="button"
-                    className={`court-chat-roster-card ${selectedNames.includes(m.name) ? "selected" : ""}`}
-                    onClick={() => toggleCourtMinister(m.name)}
-                  >
-                    <strong>{m.name}</strong>
-                    <span>{m.office || m.office_type || "在职"}</span>
-                  </button>
-                ))}
-              </div>
-              <footer className="court-chat-roster-modal-foot">
-                <button type="button" onClick={() => setCourtChatRosterOpen(false)}>取消</button>
-                <button type="button" disabled={!selectedNames.length} onClick={confirmCourtRoster}>开始朝会</button>
-              </footer>
-            </section>
-          </>
-        ) : null}
         {showHistory ? (
           <>
             <div className="court-chat-history-scrim" aria-hidden="true" />
@@ -908,12 +845,23 @@ export function CourtDrawer({
             <MessageSquareText size={16} />
             <span>{courtChatHistory.length}</span>
           </button>
-          <div className="court-chat-roster">
-            <button className="court-chat-roster-all" type="button" onClick={() => setCourtChatRosterOpen(true)}>换人</button>
-            {selectedNames.map((name) => (
-              <span key={name} className="court-chat-roster-chip selected">{name}</span>
-            ))}
-          </div>
+          {activeIssues.length ? (
+            <div className="court-chat-topic-chips">
+              <span className="court-chat-topic-chips-label">话题：</span>
+              {activeIssues.map((issue) => (
+                <button
+                  key={issue.id}
+                  type="button"
+                  className="court-chat-topic-chip"
+                  disabled={courtChatBusy}
+                  title={issue.stage_text}
+                  onClick={() => pickCourtChatTopic(issue)}
+                >
+                  {issue.title}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <textarea
             className="court-chat-input"
             value={courtChatInput}
