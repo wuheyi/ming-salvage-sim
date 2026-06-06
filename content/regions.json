@@ -552,7 +552,7 @@
           "corruption": 35,
           "grain_output": 270,
           "grain_stock": 80
-        },
+        }
       }
     },
     {
@@ -606,7 +606,7 @@
           "corruption": 40,
           "grain_output": 520,
           "grain_stock": 240
-        },
+        }
       }
     },
     {
@@ -660,7 +660,7 @@
           "corruption": 30,
           "grain_output": 290,
           "grain_stock": 80
-        },
+        }
       }
     },
     {
@@ -714,7 +714,7 @@
           "corruption": 50,
           "grain_output": 1800,
           "grain_stock": 500
-        },
+        }
       }
     },
     {
@@ -768,7 +768,7 @@
           "corruption": 30,
           "grain_output": 135,
           "grain_stock": 40
-        },
+        }
       }
     },
     {
@@ -990,7 +990,7 @@
           "corruption": 30,
           "grain_output": 100,
           "grain_stock": 60
-        },
+        }
       }
     }
   ]

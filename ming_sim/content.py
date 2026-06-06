@@ -576,8 +576,6 @@ class GameContent:
     season_simulator_prompt: str = ""
     score_extractor_shared_prompt: str = ""
     score_extractor_module_prompts: Dict[str, str] = field(default_factory=dict)
-    module_shared_prompt: str = ""
-    module_merged_prompts: Dict[str, str] = field(default_factory=dict)
     chapter_memory_prompt: str = ""
     ending_summary_prompt: str = ""
 
@@ -651,13 +649,6 @@ class GameContent:
                 "military_external": load_text_asset("prompts/score_extractor_military_external.md"),
                 "issues": load_text_asset("prompts/score_extractor_issues.md"),
                 "personnel_secret": load_text_asset("prompts/score_extractor_personnel_secret.md"),
-            },
-            module_shared_prompt=load_text_asset("prompts/module_shared.md"),
-            module_merged_prompts={
-                "internal": load_text_asset("prompts/module_internal.md"),
-                "military_external": load_text_asset("prompts/module_military_external.md"),
-                "issues": load_text_asset("prompts/module_issues.md"),
-                "personnel_secret": load_text_asset("prompts/module_personnel_secret.md"),
             },
             chapter_memory_prompt=load_text_asset("prompts/chapter_memory.md"),
             ending_summary_prompt=load_text_asset("prompts/ending_summary.md"),

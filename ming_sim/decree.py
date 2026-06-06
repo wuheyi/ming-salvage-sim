@@ -19,7 +19,6 @@ from ming_sim.agents import (
     create_decree_writer_agent,
     create_ending_summary_agent,
     create_json_sanitizer_agent,
-    create_module_agent,
     create_score_extractor_module_agent,
     create_season_simulator_agent,
     run_agent_stream_text,
@@ -36,14 +35,9 @@ from ming_sim.models import GameState, LLMConfig
 from ming_sim.memories import build_timeline, record_chapter_memory
 from ming_sim.simulation import (
     EXTRACTION_MODULES,
-    _localized_extraction,
-    _merge_module_outputs,
-    build_module_action_payload,
     build_simulator_payload,
     build_extractor_shared_context,
-    classify_actions,
     extract_scores_by_modules_with_agno,
-    parse_module_response,
     simulate_season_with_payload,
 )
 from ming_sim.token_stats import tlog
@@ -205,15 +199,10 @@ def resolve_directives(
     registry=None,
     cheat_directive: str = "",
 ) -> ResolveResult:
-    """[已废弃，保留代码供回退/参考——GameSession 已改调 resolve_directives_modular]
-
-    旧两段式 phase1：跑固定财政 + simulator 写**统一**邸报，解析 HITL 决策点；
-    数值抽取在 _settle_after_narrative / resolve_decisions_phase2 里另起 4 次调用
-    重读同一篇邸报各抽各的。新流程把"诏书/事项/密令分类路由四模块、每模块一次调用
-    自产叙事片段+JSON"合并为一步，详见 resolve_directives_modular 与
-    issue-action-prancy-dragonfly 重构计划。本函数与 _settle_after_narrative /
-    parse_decision_blocks / resolve_decisions_phase2 整条 HITL 链路一并停用、不删，
-    避免遗留调用方报错。
+    """两段式结算 phase1（GameSession.resolve_turn 的主链）：跑固定财政 tick →
+    simulator 写**一整篇**月末邸报 → 解析 HITL 决策点。数值抽取在
+    _settle_after_narrative / resolve_decisions_phase2 里另起 4 次 score_extractor
+    调用，各自重读同一篇邸报抽自己那部分字段。
 
     on_event(kind, data): 推演过程实时回调。
     kind ∈ {stage, thinking, text}；stage 携带阶段名，thinking/text 携带增量片段。
@@ -373,244 +362,6 @@ def resolve_directives(
     return ResolveResult(awaiting=False, report=report)
 
 
-def resolve_directives_modular(
-    state: GameState,
-    db: GameDB,
-    agno_db: SqliteDb,
-    llm_config: LLMConfig,
-    directives: List[sqlite3.Row],
-    decree_text: str,
-    deaths_this_turn: Optional[List[Dict[str, str]]] = None,
-    debuts_this_turn: Optional[List[Dict[str, str]]] = None,
-    on_event: Optional[Callable[[str, str], None]] = None,
-    content=None,
-    registry=None,
-    cheat_directive: str = "",
-) -> ResolveResult:
-    """诏书/事项/密令先分类成 action 列表，按类型路由到四模块，每模块一次 LLM 调用
-    同时产出「自己负责范围的叙事片段 + 结构化增量」（合并 simulate+extract 为一步）。
-    四段叙事顺序拼接即月末邸报；四份增量合并后一次性落库——不再有「先统一写一篇邸报、
-    再回头四次重复抽取」的两段式设计。
-
-    暂不考虑 HITL 亲裁：新模块 prompt 不产出 <<DECISION>> 块，本函数恒定 awaiting=False。
-
-    顺序（非并行）执行 EXTRACTION_MODULES：避免四个模块各写一段时互相矛盾——后写的模块
-    user payload 里会带"前情提要"（已写片段的精简摘要），缓解但不能根治跨模块连贯性问题
-    （这是用户已知晓并接受的代价，见 issue-action-prancy-dragonfly 计划）。
-
-    cheat_directive：作弊控制台强制结算项。无统一叙事可拼，改为塞进每个模块的 user payload
-    （build_module_action_payload 的 cheat_directive 参数），保持"唯一入口"语义——从喂一次
-    变成喂四次相同内容，每个模块写自己片段、抽自己 JSON 时都把它当既成事实处理。
-    """
-    def _emit(kind: str, data: str) -> None:
-        if on_event:
-            on_event(kind, data)
-
-    if not directives:
-        advance_without_edict(state, db)
-        return ResolveResult(awaiting=False, report=f"本{TURN_UNIT}未颁正式诏书。")
-
-    before_turn = state.turn
-
-    # 1) 固定月度财政 tick（田赋/辽饷/军饷等，在 LLM 推演前落账）
-    tlog("结算[模块化] 1/4 固定月度财政 tick")
-    _emit("stage", "固定月度财政入账")
-    apply_fixed_period_flows(db, state)
-
-    # 1.6) 程序硬触发：标了 auto_trigger 的 seed 情势，gate 达标即由程序直接立项。
-    auto_triggered = auto_trigger_seed_issues(state, db)
-    if auto_triggered:
-        tlog(f"[AUTO-TRIGGER] 本回合程序硬立项 {len(auto_triggered)} 条：{[t.get('title') for t in auto_triggered]}")
-
-    # 1.8) 历史脉络：取近几回合章节记忆注入推演。
-    relevant_memories: List[Dict] = []
-    secret_orders_for_sim: list = []
-    try:
-        _emit("stage", "回顾近来朝局")
-        relevant_memories = db.list_chapter_memories(upto_turn=state.turn, recent=6)
-        tlog(f"[memory/chapters] inject={len(relevant_memories)} upto_turn={state.turn}")
-    except Exception as exc:
-        tlog(f"[memory/chapters] 失败，跳过：{exc}")
-
-    try:
-        due_orders = db.auto_submit_due_secret_orders(state)
-        if due_orders:
-            tlog(f"[secret_order] 到期送核议 {due_orders}")
-    except Exception as exc:
-        tlog(f"[secret_order] 到期送核议失败，跳过：{exc}")
-
-    try:
-        active_orders = (
-            db.list_secret_orders(status="active")
-            + db.list_secret_orders(status="pending_review")
-        )[:20]
-        for o in active_orders:
-            secret_orders_for_sim.append({
-                "id": int(o["id"]),
-                "minister_name": o["minister_name"],
-                "title": o["title"],
-                "content": o["content"][:120],
-                "status": o["status"],
-                "turn_issued": o.get("turn_issued") or 0,
-                "due_turn": o.get("due_turn") or 0,
-                "progress": o.get("result") or "",
-                "sim_note": o.get("sim_note") or "",
-            })
-        n_active = sum(1 for o in active_orders if o["status"] == "active")
-        n_pending = sum(1 for o in active_orders if o["status"] == "pending_review")
-        tlog(f"[secret_order] 注入推演 active={n_active} pending_review={n_pending}"
-             + (f" titles={[o['title'] for o in active_orders]}" if active_orders else ""))
-    except Exception as exc:
-        tlog(f"[secret_order] 注入失败，跳过：{exc}")
-
-    # 2) 分类成 action 列表，按 module 路由分桶（纯 Python 规则路由，零额外 LLM 成本）
-    tlog("结算[模块化] 2/4 诏书/事项/密令分类路由")
-    _emit("stage", "分类诏书与时务")
-    active_issues = db.list_active_issues()
-    actions = classify_actions(state, db, directives, active_issues, secret_orders_for_sim, content=content)
-    actions_by_module: Dict[str, List] = {m: [] for m in EXTRACTION_MODULES}
-    for action in actions:
-        actions_by_module.setdefault(action.module, []).append(action)
-    tlog(f"[classify] 共 {len(actions)} 条 action，路由分布：" + ", ".join(
-        f"{m}={len(actions_by_module.get(m, []))}" for m in EXTRACTION_MODULES
-    ))
-
-    # 3) 共享前缀 payload：仍是全量盘面（供 build_simulator_context 字节级一致复用）
-    previous_narrative = db.previous_turn_summary(state) or ""
-    simulator_payload = build_simulator_payload(
-        state, db, decree_text, previous_narrative,
-        deaths_this_turn=deaths_this_turn,
-        debuts_this_turn=debuts_this_turn,
-        relevant_memories=relevant_memories,
-        secret_orders=secret_orders_for_sim,
-    )
-
-    # 4) 顺序跑四模块：每模块一次调用同时产出「自己范围叙事 + 自己范围 JSON 增量」
-    tlog("结算[模块化] 3/4 四模块顺序推演（叙事+抽取合一）")
-    _emit("stage", "推演月末奏章（分模块）")
-    sanitizer = create_json_sanitizer_agent(llm_config, agno_db)
-    module_narratives: Dict[str, str] = {}
-    module_extractions: Dict[str, Dict[str, object]] = {}
-    module_raw: Dict[str, str] = {}
-    module_inputs: Dict[str, object] = {}
-    written_so_far: List[str] = []
-    for module in EXTRACTION_MODULES:
-        _emit("stage", f"推演月末奏章（{module}）")
-        agent = create_module_agent(llm_config, agno_db, module, simulator_payload=simulator_payload)
-        payload = build_module_action_payload(
-            module, actions_by_module.get(module, []), state, db,
-            cheat_directive=cheat_directive,
-        )
-        if written_so_far:
-            payload["previous_modules_brief"] = "\n\n".join(written_so_far)
-            payload["previous_modules_note"] = (
-                "以上是本月奏章中前面模块已写定的片段摘要，供你保持人物/钱粮/局势前后一致——"
-                "不要重写或矛盾，只在需要呼应处自然带过。"
-            )
-        payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=False)
-        module_inputs[module] = payload
-        tlog(f"[module/{module}] user payload total={len(payload_json)} chars (~{len(payload_json)//1.5:.0f} tok)")
-        try:
-            raw = run_agent_stream_text(
-                agent, payload_json, tag=f"module/{module}",
-                on_thinking=lambda c: _emit("thinking", c),
-                on_text=lambda c: _emit("text", c),
-            )
-        except Exception as exc:
-            tlog(f"[module/{module}] 推演失败：{exc}；本模块叙事置空、JSON 置空")
-            raw = ""
-        module_raw[module] = raw
-        fragment, extracted = parse_module_response(raw, module, sanitizer)
-        module_narratives[module] = fragment
-        module_extractions[module] = extracted
-        if fragment.strip():
-            written_so_far.append(f"【{module}】\n{fragment[:600]}")
-
-    combined_narrative = "\n\n".join(
-        frag for frag in (module_narratives[m] for m in EXTRACTION_MODULES) if frag.strip()
-    )
-    extracted = _merge_module_outputs(module_extractions)
-    localized_merged = _localized_extraction(extracted)
-    extractor_output = json.dumps(localized_merged, ensure_ascii=False, sort_keys=False)
-    extractor_input = json.dumps({
-        "mode": "modular_merged",
-        "system_context_note": "四模块各自 system instructions = [game_world, simulator_context(字节级一致), module_merged_prompt]；user payload 只含路由到本模块的 action 子集 + 校验集 + 前情提要。",
-        "actions": [
-            {"source_kind": a.source_kind, "source_id": a.source_id, "module": a.module,
-             "person": a.person, "executor": a.executor, "action_brief": a.action_brief}
-            for a in actions
-        ],
-        "modules": module_inputs,
-        "module_raw_narratives": module_raw,
-    }, ensure_ascii=False, sort_keys=False)
-
-    # 5) 落库：合并增量一次性 apply（apply_score_extraction 内部跨字段依赖顺序不变）
-    tlog("结算[模块化] 4/4 落库 + inertia/ongoing")
-    _emit("stage", "落库与事项推进")
-    applied = apply_score_extraction(db, state, extracted, content=content, registry=registry)
-
-    db.save_turn_report(state, combined_narrative)
-    db.save_turn_extraction(
-        state,
-        decree_text=decree_text,
-        narrative=combined_narrative,
-        extractor_input=extractor_input,
-        extractor_output=extractor_output,
-    )
-
-    # 6) 章节记忆
-    _emit("stage", "记起居注")
-    try:
-        chapter_agent = create_chapter_memory_agent(llm_config, agno_db)
-        record_chapter_memory(chapter_agent, db, state, decree_text, combined_narrative, applied)
-    except Exception as exc:
-        tlog(f"[chapter-memory] 跳过：{exc}")
-
-    # 7) inertia + ongoing
-    touched_ids = set()
-    for adv in applied.get("issue_summary", {}).get("advances", []) or []:
-        touched_ids.add(int(adv.get("issue_id") or 0))
-    apply_issue_inertia_and_ongoing(db, state, touched_ids=touched_ids)
-
-    # 8) 开局负面帝国修正清理
-    clear_gated_legacies(db, state)
-
-    # 9) 结局判定
-    outcome = None
-    ended = False
-    ending_text = ""
-    if not state.ended:
-        outcome = applied.get("victory_status") or victory_status(db, state)
-        if (
-            isinstance(outcome, dict)
-            and outcome.get("status") == ENDING_ONGOING
-            and state.turn >= TIMEOUT_TURN
-        ):
-            outcome = {
-                "status": ENDING_TIMEOUT,
-                "summary": "崇祯在位二十载，朝局至此尘埃落定，是中兴、是苟延、还是衰亡，自有史评。",
-            }
-        ended = isinstance(outcome, dict) and outcome.get("status") != ENDING_ONGOING
-        if ended:
-            ending_text = _generate_ending_summary(db, state, llm_config, agno_db, outcome, _emit)
-            state.ended = True
-            state.ending_status = str(outcome.get("status") or "")
-
-    db.mark_directives_issued(state)
-    state.next_period()
-    db.save_state(state)
-    assert state.turn == before_turn + 1
-
-    ending = ""
-    if ended:
-        label = ENDING_LABELS.get(str(outcome.get("status")), "结局")
-        ending = f"\n\n【结局·{label}】{outcome.get('summary', '')}"
-        if ending_text:
-            ending += "\n\n" + ending_text
-    full_report = f"\n本{TURN_UNIT}颁布诏书：\n" + decree_text + "\n\n" + combined_narrative + ending
-    return ResolveResult(awaiting=False, report=full_report)
-
-
 def _settle_after_narrative(
     state: GameState,
     db: GameDB,
@@ -628,11 +379,9 @@ def _settle_after_narrative(
     cheat_directive: str = "",
     decision_directive: str = "",
 ) -> str:
-    """[已废弃，保留代码供回退/参考——GameSession 已改调 resolve_directives_modular]
-
-    旧两段式 phase2：邸报已定（已剥离决策块），跑 extractor→落库→章节记忆→结局→推进。
-    cheat_directive / decision_directive 各自拼到 effective_narrative 最前喂 extractor。
-    随 resolve_directives 与整条 HITL 链路一并停用，详见该函数的废弃说明。"""
+    """两段式结算 phase2：邸报已定（已剥离决策块），跑 4 个 score_extractor 抽取 →
+    落库 → 章节记忆 → 结局判定 → 回合推进。
+    cheat_directive / decision_directive 各自拼到 effective_narrative 最前喂 extractor。"""
     secret_orders_for_sim = secret_orders
     # 2.5) 作弊强制项 + 圣意亲裁：拼到邸报最前面一起喂 extractor（唯一入口）。
     #      落库前文/turn_report 仍用原始 narrative，effective 版只进 extractor 与留痕。

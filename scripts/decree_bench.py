@@ -61,6 +61,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--start-ym", default="", help="开局年月，如 1629.04；空=默认开局")
     p.add_argument("--reset", action="store_true", help="跑前删库重开（基准可比）")
     p.add_argument("--log", default="", help="同时把 stdout 落盘到该文件")
+    p.add_argument("--skip-hitl", action="store_true",
+                   help="跳过 HITL 决策点：simulator 若产决策点，自动取每个首选项续跑结算，"
+                        "不暂停等亲裁——一步跑完拿全量 token（旧两步法默认会暂停）。")
     return p.parse_args()
 
 
@@ -148,7 +151,20 @@ def main() -> int:
         print(f"[evt] {kind}: {str(data)[:120]}")
 
     print("[resolve] 开始结算（拟诏 + simulator + extractor）...")
-    report = session.resolve_turn(on_event=on_event)
+    result = session.resolve_turn(on_event=on_event)
+    # 旧两步法 simulator 可能产 HITL 决策点 → awaiting=True 暂停。--skip-hitl 时自动取
+    # 每个决策首选项续跑 phase2，一步拿到 extractor 全量 token；否则按返回 report。
+    if getattr(result, "awaiting", False):
+        if not args.skip_hitl:
+            raise SystemExit(
+                f"[resolve] simulator 产出 {len(result.decisions)} 个 HITL 决策点，结算暂停。"
+                "加 --skip-hitl 自动续跑以测完整 token。"
+            )
+        print(f"[resolve] 出 {len(result.decisions)} 个决策点，--skip-hitl 自动取首选续跑 extractor。")
+        choices = [dict((d.get("options") or [{}])[0]) for d in result.decisions]
+        report = session.submit_decisions(choices, on_event=on_event)
+    else:
+        report = result.report
     print(f"[resolve] 完成。邸报 {len(report)} 字。")
     session.end_turn()
 

@@ -476,47 +476,6 @@ def create_score_extractor_module_agent(
     )
 
 
-def create_module_agent(
-    llm_config: LLMConfig,
-    agno_db: SqliteDb,
-    module: str,
-    simulator_payload: Optional[Dict[str, object]] = None,
-) -> Agent:
-    """模块讲官：合并叙事+抽取为一次调用，产出 `<<NARRATIVE>>...<<EXTRACTION_END>>` 信封。
-
-    instructions = [game_world, simulator_context, module_shared, module_merged_prompt[module]]——
-    前三段（game_world + 盘面 TSV + module_shared 公共段）4 模块字节级一致，与同回合
-    simulator 之间也共用 game_world+盘面前缀，均可复用 DeepSeek 前缀缓存；只有第四段
-    （GameContent.module_merged_prompts，对应 content/prompts/module_<module>.md）才是模块专属。
-    把信封格式/文体禁令/抽取流程等四模块逐字一致的公共段抽进 module_shared 拼在分叉点之前，
-    使共用前缀从 [game_world|盘面] 延长到 [game_world|盘面|module_shared]，抬高缓存命中率上限。
-
-    不强制 force_json_output：信封里自由散文段需要保留排版与文笔，JSON 段靠分隔符
-    + prompt 范例约束，解析失败由 parse_module_response 兜底 sanitizer。"""
-    del agno_db  # 一次性 agent，不持久化，免撑爆 .emperor.db
-    ctx = _ctx()
-    prompt = ctx.module_merged_prompts.get(module)
-    if not prompt:
-        raise RuntimeError(f"未知结算模块：{module}")
-    cfg = _llm_for_role(llm_config, "extractor")
-    tlog(f"[module/{module}] 使用模型 {cfg.model}")
-    # 与 simulator/extractor 共用同一函数 → 字节级一致 → 4 模块间+跨 simulator 复用前缀缓存。
-    simulator_context = build_simulator_context(simulator_payload)
-    # module_shared 是四模块逐字一致的公共段（信封格式/文体禁令/抽取流程），拼在模块专属 prompt
-    # 之前 → 共用前缀延长到此，分叉点后移，抬高 DeepSeek 前缀缓存命中率上限。
-    instructions = [ctx.game_world_prompt, simulator_context, ctx.module_shared_prompt, prompt]
-    if is_minimax_base_url(cfg.base_url):
-        instructions.insert(0, _MINIMAX_SHORT_THINKING_PROMPT)
-    return Agent(
-        name=f"月末推演日讲官-{module}",
-        id=f"module-agent-{module}",
-        model=create_chat_model(cfg, temperature=0.7, top_p=0.9, max_tokens=cfg.max_tokens, enable_thinking=True),
-        instructions=instructions,
-        add_history_to_context=False,
-        markdown=False,
-    )
-
-
 JSON_SANITIZER_PROMPT = (
     "你是 JSON 修复匠。下面给你一段被污染的 JSON（可能混了思考过程、```json fence、注释、尾随逗号、"
     "重复字段、Markdown 标题等），请只输出**修复后的合法 JSON 字符串**，不要加任何解释、前后缀或 fence。\n"
