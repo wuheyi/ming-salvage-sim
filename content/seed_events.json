@@ -18,7 +18,7 @@
       "韩爌",
       "王承恩"
     ],
-    "resolve_condition": "国库回合收入为正，每月进度+10",
+    "resolve_condition": "看 treasury_brief 程序给的【国库本月固定收支结论】：结论为「盈余」（净+）即推进，进度每月+10，净越高推得越多；结论为「亏空」则不推进或倒退。盈亏以该结论为准，勿自行加减明细",
     "fail_condition": "国库见底致刚性支出违约——欠饷哗变、官俸断发或宗禄拖欠激成宗藩闹事",
     "trigger_gate": {},
     "auto_trigger": true,

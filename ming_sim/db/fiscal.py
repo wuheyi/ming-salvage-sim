@@ -69,9 +69,13 @@ class _FiscalMixin:
                 str(rec.get("budget_role", "fixed")),
                 str(rec.get("account", "")), str(rec.get("direction", "")),
                 str(rec.get("display", "")), int(rec.get("order", 9999)),
+                str(rec.get("formula", "")), str(rec.get("basis", "")), str(rec.get("rate_unit", "")),
             )
 
-        cols = "(key, value, kind, note, budget_role, account, direction, display, sort_order)"
+        cols = (
+            "(key, value, kind, note, budget_role, account, direction, display, "
+            "sort_order, formula, basis, rate_unit)"
+        )
 
         def _seed_missing() -> None:
             """老档升版的默认迁移：只补 JSON 有、库里没有的 key（不覆盖既有值、不复活已删项）。"""
@@ -86,7 +90,8 @@ class _FiscalMixin:
             """补齐 fiscal_config 的预算目录元数据；不改玩家调过的 value。"""
             self.conn.executemany(
                 "UPDATE fiscal_config SET note = ?, budget_role = ?, account = ?, "
-                "direction = ?, display = ?, sort_order = ? WHERE key = ?",
+                "direction = ?, display = ?, sort_order = ?, formula = ?, basis = ?, "
+                "rate_unit = ? WHERE key = ?",
                 [
                     (
                         str(rec["note"]),
@@ -95,6 +100,9 @@ class _FiscalMixin:
                         str(rec.get("direction", "")),
                         str(rec.get("display", "")),
                         int(rec.get("order", 9999)),
+                        str(rec.get("formula", "")),
+                        str(rec.get("basis", "")),
+                        str(rec.get("rate_unit", "")),
                         str(rec["key"]),
                     )
                     for rec in rows
@@ -181,7 +189,7 @@ class _FiscalMixin:
             else:
                 # 全新库：整体 seed 一次。
                 self.conn.executemany(
-                    f"INSERT INTO fiscal_config {cols} VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    f"INSERT INTO fiscal_config {cols} VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     [_meta(rec) for rec in rows],
                 )
         else:
@@ -205,7 +213,7 @@ class _FiscalMixin:
         不在本列表里）。dynamic 项（田赋/辽饷/盐税/商税/皇庄）走省级公式，这里不返回。
         """
         rows = self.conn.execute(
-            "SELECT key, account, direction, display, note, sort_order FROM fiscal_config "
+            "SELECT key, account, direction, display, note, sort_order, formula, basis, rate_unit FROM fiscal_config "
             "WHERE budget_role = 'fixed' AND kind = 'base' AND key LIKE '%\\_base' ESCAPE '\\' "
             "ORDER BY sort_order, key"
         ).fetchall()
@@ -216,6 +224,9 @@ class _FiscalMixin:
                 "direction": str(r["direction"]),
                 "display": str(r["display"]),
                 "note": str(r["note"] or ""),
+                "formula": str(r["formula"] or ""),
+                "basis": str(r["basis"] or ""),
+                "rate_unit": str(r["rate_unit"] or ""),
             }
             for r in rows
         ]
@@ -240,6 +251,9 @@ class _FiscalMixin:
         display: str,
         init_value: int,
         note: str = "",
+        formula: str = "",
+        basis: str = "",
+        rate_unit: str = "",
     ) -> Optional[str]:
         """LLM 推演中凭空新立一个月固定收支项（budget_role=fixed）。
 
@@ -263,15 +277,15 @@ class _FiscalMixin:
         ).fetchone()[0]
         self.conn.execute(
             "INSERT INTO fiscal_config "
-            "(key, value, kind, budget_role, account, direction, display, sort_order, note) "
-            "VALUES (?, ?, 'base', 'fixed', ?, ?, ?, ?, ?)",
-            (base_key, max(0, init_value), account, direction, display, sort_order, note),
+            "(key, value, kind, budget_role, account, direction, display, sort_order, note, formula, basis, rate_unit) "
+            "VALUES (?, ?, 'base', 'fixed', ?, ?, ?, ?, ?, ?, ?, ?)",
+            (base_key, max(0, init_value), account, direction, display, sort_order, note, formula, basis, rate_unit),
         )
         self.conn.execute(
             "INSERT INTO fiscal_config "
-            "(key, value, kind, budget_role, account, direction, display, sort_order, note) "
-            "VALUES (?, 100, 'rate', 'fixed', ?, ?, ?, ?, ?)",
-            (rate_key, account, direction, display, sort_order, f"{display}实收率%"),
+            "(key, value, kind, budget_role, account, direction, display, sort_order, note, formula, basis, rate_unit) "
+            "VALUES (?, 100, 'rate', 'fixed', ?, ?, ?, ?, ?, ?, ?, ?)",
+            (rate_key, account, direction, display, sort_order, f"{display}实收率%", "", "", ""),
         )
         self.conn.commit()
         return base_key
@@ -425,17 +439,21 @@ class _FiscalMixin:
 
         gk_in, gk_out = _sum("国库", "income"), _sum("国库", "expense")
         nk_in, nk_out = _sum("内库", "income"), _sum("内库", "expense")
+        gk_net, nk_net = gk_in - gk_out, nk_in - nk_out
+        # 净额已由程序减好，并直接给出盈/亏结论——LLM 不得再自行加减，照此结论叙事/推进。
+        gk_verdict = "本月固定收支盈余（净＞0）" if gk_net > 0 else (
+            "本月固定收支亏空（净＜0）" if gk_net < 0 else "本月固定收支持平（净＝0）")
         return (
-            f"{TURN_UNIT}度预算基准：国库入{format_money(gk_in)}"
-            f"（田赋+辽饷+盐税+商税+建筑产出{format_money(_amt('国库', 'income', '建筑产出'))}）"
+            f"【国库本{TURN_UNIT}固定收支结论：{gk_verdict}，净{format_money_delta(gk_net)}】"
+            f"（明细：入{format_money(gk_in)}"
+            f"〔田赋+辽饷+盐税+商税+建筑产出{format_money(_amt('国库', 'income', '建筑产出'))}〕"
             f"出{format_money(gk_out)}"
-            f"（军饷{format_money(_amt('国库', 'expense', '各军军饷'))}+宗室+官俸+补给+"
-            f"建筑维护{format_money(_amt('国库', 'expense', '建筑维护'))}）"
-            f"净{format_money_delta(gk_in - gk_out)}；"
-            f"内库入{format_money(nk_in)}"
-            f"出{format_money(nk_out)}"
-            f"（内廷维护{format_money(_amt('内库', 'expense', '建筑维护'))}）"
-            f"净{format_money_delta(nk_in - nk_out)}。"
+            f"〔军饷{format_money(_amt('国库', 'expense', '各军军饷'))}+宗室+官俸+补给+"
+            f"建筑维护{format_money(_amt('国库', 'expense', '建筑维护'))}〕"
+            f"，此明细仅供参考，盈亏以上方结论为准，勿再自算）；"
+            f"内库本{TURN_UNIT}净{format_money_delta(nk_net)}"
+            f"（入{format_money(nk_in)}出{format_money(nk_out)}"
+            f"〔内廷维护{format_money(_amt('内库', 'expense', '建筑维护'))}〕）。"
         )
 
     def treasury_report(self, state: GameState, limit: int = 6) -> str:

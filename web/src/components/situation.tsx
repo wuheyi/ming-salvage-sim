@@ -2,7 +2,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { api } from "../api";
 import { formatClosedEffect, formatIssueEffect, issueTone } from "../format";
-import type { ClosedIssue, Issue } from "../types";
+import type { ClosedIssue, Issue, PresetTreeItem, PresetTrees } from "../types";
 
 // 八题材分类（与后端 ISSUE_THEMES 对齐）：决定手动局势走满后落成何种实体。
 const ISSUE_THEMES = ["工程", "科技", "政治", "军事", "民生", "经济", "文化", "其他"] as const;
@@ -91,13 +91,14 @@ export function SituationPanel({ issues, closedIssues, hasLegacies, compact = fa
   );
 }
 
-export function SituationDrawer({ open, issues, closedIssues, onClose, maxDecreeIssues = 10, regions = [], onChanged }: {
+export function SituationDrawer({ open, issues, closedIssues, onClose, maxDecreeIssues = 10, regions = [], presetTrees, onChanged }: {
   open: boolean;
   issues: Issue[];
   closedIssues: ClosedIssue[];
   onClose: () => void;
   maxDecreeIssues?: number;
   regions?: { id: string; name: string }[];
+  presetTrees?: PresetTrees;
   onChanged?: () => void | Promise<void>;
 }) {
   const { active, longTerm, nearTerm } = groupIssues(issues);
@@ -152,6 +153,7 @@ export function SituationDrawer({ open, issues, closedIssues, onClose, maxDecree
         <ManualIssueEditor
           editing={editor.mode === "edit" ? editor.issue : null}
           regions={regions}
+          presetTrees={presetTrees}
           onClose={() => setEditor(null)}
           onSaved={async () => {
             setEditor(null);
@@ -243,9 +245,16 @@ const THEME_ENTITY: Record<string, "building" | "technology" | "department" | ""
 // 建筑类别白名单（与后端 BUILDING_CATEGORIES 对齐）。
 const BUILDING_CATEGORIES = ["民生", "财政", "军事", "科技", "交通", "内廷"] as const;
 
-export function ManualIssueEditor({ editing, regions = [], onClose, onSaved }: {
+function presetRequirementText(item: PresetTreeItem, pool: PresetTreeItem[]) {
+  if (!item.requires.length) return "根基";
+  const names = item.requires.map((key) => pool.find((p) => p.key === key)?.name || key);
+  return `前置：${names.join("、")}`;
+}
+
+export function ManualIssueEditor({ editing, regions = [], presetTrees, onClose, onSaved }: {
   editing: Issue | null;
   regions?: { id: string; name: string }[];
+  presetTrees?: PresetTrees;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
@@ -260,9 +269,37 @@ export function ManualIssueEditor({ editing, regions = [], onClose, onSaved }: {
   const [authorityScope, setAuthorityScope] = React.useState<string>("");
   const [power, setPower] = React.useState<number>(50);
   const [effectSummary, setEffectSummary] = React.useState<string>("");
+  const [presetMode, setPresetMode] = React.useState<"preset" | "custom">("preset");
+  const [presetKey, setPresetKey] = React.useState<string>("");
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
   const entityKind = THEME_ENTITY[category] || "";
+  const presetPool = entityKind === "technology"
+    ? (presetTrees?.technologies || [])
+    : entityKind === "department"
+      ? (presetTrees?.departments || [])
+      : [];
+  const selectablePresets = presetPool.filter((p) => !p.unlocked);
+  const selectedPreset = presetPool.find((p) => p.key === presetKey) || null;
+  React.useEffect(() => {
+    if (entityKind !== "technology" && entityKind !== "department") {
+      setPresetKey("");
+      return;
+    }
+    const first = selectablePresets.find((p) => p.available)?.key || selectablePresets[0]?.key || "";
+    setPresetKey((cur) => (cur && selectablePresets.some((p) => p.key === cur) ? cur : first));
+  }, [entityKind, selectablePresets.map((p) => `${p.key}:${p.available}:${p.unlocked}`).join("|")]);
+  React.useEffect(() => {
+    if (editing || presetMode !== "preset" || !selectedPreset) return;
+    setTitle(selectedPreset.name);
+    setGoal(selectedPreset.effect_summary || selectedPreset.name);
+    if (entityKind === "department") {
+      setAuthorityScope(selectedPreset.authority_scope || "");
+      setPower(selectedPreset.power ?? 50);
+    } else if (entityKind === "technology") {
+      setEffectSummary(selectedPreset.effect_summary || "");
+    }
+  }, [editing, presetMode, selectedPreset?.key, entityKind]);
   const save = async () => {
     if (!title.trim()) { setErr("名称不能为空"); return; }
     setBusy(true);
@@ -281,9 +318,19 @@ export function ManualIssueEditor({ editing, regions = [], onClose, onSaved }: {
           if (!regionId) { setErr("请为建筑选择省份"); setBusy(false); return; }
           entity = { kind: "building", name: title.trim(), region_id: regionId, category: bldCategory, maintenance };
         } else if (entityKind === "department") {
-          entity = { kind: "department", name: title.trim(), authority_scope: authorityScope.trim(), power };
+          if (presetMode === "preset" && selectedPreset) {
+            if (!selectedPreset.available) { setErr("前置衙门未设立"); setBusy(false); return; }
+            entity = { kind: "department", preset_key: selectedPreset.key };
+          } else {
+            entity = { kind: "department", name: title.trim(), authority_scope: authorityScope.trim(), power };
+          }
         } else if (entityKind === "technology") {
-          entity = { kind: "technology", name: title.trim(), effect_summary: effectSummary.trim() };
+          if (presetMode === "preset" && selectedPreset) {
+            if (!selectedPreset.available) { setErr("前置科技未完成"); setBusy(false); return; }
+            entity = { kind: "technology", preset_key: selectedPreset.key };
+          } else {
+            entity = { kind: "technology", name: title.trim(), effect_summary: effectSummary.trim() };
+          }
         }
         await api("/api/issues/manual", {
           method: "POST",
@@ -348,23 +395,59 @@ export function ManualIssueEditor({ editing, regions = [], onClose, onSaved }: {
           {!editing && entityKind === "department" ? (
             <fieldset className="manual-issue-entity">
               <legend>新设衙门（走满 100 自动设立）</legend>
-              <label>职权范围
-                <input type="text" value={authorityScope} maxLength={40} placeholder="如：统筹中枢军政机要"
-                  onChange={(e) => setAuthorityScope(e.target.value)} />
-              </label>
-              <label>权力值（0-100）
-                <input type="number" min={0} max={100} value={power}
-                  onChange={(e) => setPower(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} />
-              </label>
+              <div className="manual-issue-mode">
+                <button type="button" className={presetMode === "preset" ? "active" : ""} onClick={() => setPresetMode("preset")}>预设政治树</button>
+                <button type="button" className={presetMode === "custom" ? "active" : ""} onClick={() => setPresetMode("custom")}>自定义</button>
+              </div>
+              {presetMode === "preset" ? (
+                <div className="manual-preset-tree">
+                  {selectablePresets.map((p) => (
+                    <button type="button" key={p.key} className={`manual-preset-node ${presetKey === p.key ? "active" : ""} ${!p.available ? "locked" : ""}`}
+                      onClick={() => setPresetKey(p.key)}>
+                      <span>{p.name}</span>
+                      <small>{p.unlocked ? "已设立" : p.available ? `${p.expected_months} 月 · 起步 ${p.bar_value}` : presetRequirementText(p, presetPool)}</small>
+                    </button>
+                  ))}
+                  {!selectablePresets.length ? <small className="manual-issue-hint">预设衙门已全部设立。</small> : null}
+                </div>
+              ) : (
+                <>
+                  <label>职权范围
+                    <input type="text" value={authorityScope} maxLength={40} placeholder="如：统筹中枢军政机要"
+                      onChange={(e) => setAuthorityScope(e.target.value)} />
+                  </label>
+                  <label>权力值（0-100）
+                    <input type="number" min={0} max={100} value={power}
+                      onChange={(e) => setPower(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} />
+                  </label>
+                </>
+              )}
             </fieldset>
           ) : null}
           {!editing && entityKind === "technology" ? (
             <fieldset className="manual-issue-entity">
               <legend>新解锁科技（走满 100 自动解锁）</legend>
-              <label>效果摘要
-                <input type="text" value={effectSummary} maxLength={60} placeholder="如：仿西法烧造琉璃，开海外贸易之源"
-                  onChange={(e) => setEffectSummary(e.target.value)} />
-              </label>
+              <div className="manual-issue-mode">
+                <button type="button" className={presetMode === "preset" ? "active" : ""} onClick={() => setPresetMode("preset")}>预设科技树</button>
+                <button type="button" className={presetMode === "custom" ? "active" : ""} onClick={() => setPresetMode("custom")}>自定义</button>
+              </div>
+              {presetMode === "preset" ? (
+                <div className="manual-preset-tree">
+                  {selectablePresets.map((p) => (
+                    <button type="button" key={p.key} className={`manual-preset-node ${presetKey === p.key ? "active" : ""} ${!p.available ? "locked" : ""}`}
+                      onClick={() => setPresetKey(p.key)}>
+                      <span>{p.name}</span>
+                      <small>{p.unlocked ? "已研成" : p.available ? `${p.expected_months} 月 · 起步 ${p.bar_value}` : presetRequirementText(p, presetPool)}</small>
+                    </button>
+                  ))}
+                  {!selectablePresets.length ? <small className="manual-issue-hint">预设科技已全部研成。</small> : null}
+                </div>
+              ) : (
+                <label>效果摘要
+                  <input type="text" value={effectSummary} maxLength={60} placeholder="如：仿西法烧造琉璃，开海外贸易之源"
+                    onChange={(e) => setEffectSummary(e.target.value)} />
+                </label>
+              )}
             </fieldset>
           ) : null}
           {editing ? null : (

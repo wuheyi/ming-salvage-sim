@@ -87,6 +87,25 @@ export type Technology = {
   origin: string;
 };
 
+export type PresetTreeItem = {
+  key: string;
+  name: string;
+  category: string;
+  effect_summary: string;
+  authority_scope?: string;
+  power?: number;
+  expected_months: number;
+  bar_value: number;
+  requires: string[];
+  unlocked: boolean;
+  available: boolean;
+};
+
+export type PresetTrees = {
+  technologies: PresetTreeItem[];
+  departments: PresetTreeItem[];
+};
+
 export type MapNode = {
   id: string;
   kind: "region" | "theater" | "external";
@@ -309,6 +328,7 @@ export type GameState = {
   regions: Region[];
   armies: Army[];
   technologies: Technology[];
+  preset_trees?: PresetTrees;
   map_nodes: MapNode[];
   ministers: Minister[];
   consorts: Minister[];

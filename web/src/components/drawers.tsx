@@ -631,7 +631,9 @@ export function EconomyDrawer({
   const budget = state.budget[tab];
   const modifierPct = budget.modifier_pct || 0;
   const hasModifier = modifierPct !== 0 && budget.base_net !== undefined;
-  const matchItem = (name: string) => !q || name.includes(q);
+  const budgetFormula = (item: { base?: number; rate?: number; amount: number; note?: string; formula?: string; formula_kind?: string }) =>
+    item.formula ? `${item.formula_kind === "per_basis" ? "税基" : "基准"} ${item.formula} = ${formatMoney(item.amount)}` : (item.note || "");
+  const matchItem = (name: string, extra = "") => !q || `${name} ${extra}`.includes(q);
   return (
     <RightDrawer open={open} onClose={onClose} title="经济" icon={<ScrollText size={17} />} extraClass="right-drawer-economy">
       <div className="segmented right-drawer-segmented">
@@ -655,16 +657,22 @@ export function EconomyDrawer({
       </div>
       <div className="right-drawer-list">
         <div className="right-drawer-section-title">固定收入</div>
-        {budget.income.filter((item) => matchItem(item.name)).map((item) => (
+        {budget.income.filter((item) => matchItem(item.name, `${item.note || ""} ${item.base_key || ""} ${item.rate_key || ""}`)).map((item) => (
           <div key={`in-${item.name}`} className="right-drawer-budget-row">
-            <span>{item.name}</span>
+            <span>
+              <b>{item.name}</b>
+              {item.formula && <small>{budgetFormula(item)}</small>}
+            </span>
             <b className="income">+{formatMoney(item.amount)}</b>
           </div>
         ))}
         <div className="right-drawer-section-title">固定支出</div>
-        {budget.expense.filter((item) => matchItem(item.name)).map((item) => (
+        {budget.expense.filter((item) => matchItem(item.name, `${item.note || ""} ${item.base_key || ""} ${item.rate_key || ""}`)).map((item) => (
           <div key={`ex-${item.name}`} className="right-drawer-budget-row">
-            <span>{item.name}</span>
+            <span>
+              <b>{item.name}</b>
+              {item.formula && <small>{budgetFormula(item)}</small>}
+            </span>
             <b className="expense">-{formatMoney(item.amount)}</b>
           </div>
         ))}

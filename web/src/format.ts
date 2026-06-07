@@ -210,7 +210,7 @@ export const fiscalKeyLabel = (key: any): string => {
   const raw = String(key ?? "");
   const match = raw.match(/^(.+)_(base|rate)$/);
   if (!match) return cnField(raw);
-  return `${match[1]}${match[2] === "base" ? "基数" : "系数"}`;
+  return `${match[1]}${match[2] === "base" ? "基准" : "比例"}`;
 };
 
 export const briefTreasury = (state: GameState) => [

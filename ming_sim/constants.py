@@ -24,9 +24,13 @@ TURN_UNIT = "月"
 REGION_SCORE_FIELDS = ("public_support", "unrest", "gentry_resistance", "military_pressure")
 REGION_QUANTITY_FIELDS = ("population", "registered_land", "hidden_land", "tax_per_turn")
 REGION_TEXT_FIELDS = ("natural_disaster", "human_disaster", "status", "controlled_by")
-# fiscal JSON 子字段白名单（0-100量表，存在 regions.fiscal 列里）
+# fiscal JSON 子字段白名单（0-100量表 / 数量字段，存在 regions.fiscal 列里）
 FISCAL_SCORE_FIELDS = ("corruption",)
-FISCAL_QUANTITY_FIELDS = ("grain_output", "grain_stock")
+FISCAL_QUANTITY_FIELDS = (
+    "grain_output", "grain_stock",
+    "guan_min_tian", "wang_tian", "huang_tian", "tian_fu_li",
+    "liao_xiang", "salt_tax", "commerce_tax",
+)
 ARMY_SCORE_FIELDS = ("supply", "morale", "training", "equipment", "arrears", "mobility", "loyalty")
 ARMY_QUANTITY_FIELDS = ("manpower", "maintenance_per_turn")
 ARMY_TEXT_FIELDS = ("station", "commander", "controller", "troop_type", "status", "owner_power")
@@ -119,6 +123,13 @@ REGION_FIELD_LABELS = {
     "status": "状态",
     "controlled_by": "控制",
     "corruption": "腐败度",
+    "guan_min_tian": "官民田",
+    "wang_tian": "藩王庄田",
+    "huang_tian": "皇庄",
+    "tian_fu_li": "田赋亩率",
+    "liao_xiang": "辽饷基数",
+    "salt_tax": "盐税基数",
+    "commerce_tax": "商税基数",
 }
 ARMY_FIELD_LABELS = {
     "station": "驻扎地",
@@ -147,6 +158,29 @@ REGION_FIELD_ALIASES = {
     "军事压力": "military_pressure",
     "腐败": "corruption",
     "腐败度": "corruption",
+    "guan_min_tian": "guan_min_tian",
+    "官民田": "guan_min_tian",
+    "官民田亩": "guan_min_tian",
+    "民田": "guan_min_tian",
+    "wang_tian": "wang_tian",
+    "藩王庄田": "wang_tian",
+    "藩田": "wang_tian",
+    "王田": "wang_tian",
+    "huang_tian": "huang_tian",
+    "皇庄": "huang_tian",
+    "皇庄田": "huang_tian",
+    "tian_fu_li": "tian_fu_li",
+    "田赋亩率": "tian_fu_li",
+    "亩率": "tian_fu_li",
+    "liao_xiang": "liao_xiang",
+    "辽饷基数": "liao_xiang",
+    "辽饷": "liao_xiang",
+    "salt_tax": "salt_tax",
+    "盐税基数": "salt_tax",
+    "盐税": "salt_tax",
+    "commerce_tax": "commerce_tax",
+    "商税基数": "commerce_tax",
+    "商税": "commerce_tax",
     "grain_output": "grain_output",
     "粮食年产": "grain_output",
     "粮产": "grain_output",

@@ -234,6 +234,7 @@ class PresetDepartment:
     fail_condition: str                         # 怎么算黄
     effect_on_resolve: Dict[str, object]        # 一次性建成奖励（含 departments:create）
     effect_on_fail: Dict[str, object]           # 一次性失败代价
+    requires: List[str] = field(default_factory=list)  # 前置衙门 key；空=根节点
 
 
 @dataclass
@@ -254,6 +255,8 @@ class PresetTechnology:
     fail_condition: str
     effect_on_resolve: Dict[str, object]
     effect_on_fail: Dict[str, object]
+    requires: List[str] = field(default_factory=list)  # 前置科技 key；空=根节点
+    default_unlocked: bool = False                     # 新档开局即已研成并 seed 入 technologies
 
 
 @dataclass

@@ -1009,6 +1009,7 @@ export function EdictModal({
         <ManualIssueEditor
           editing={null}
           regions={(state.regions || []).filter((r) => (r.controlled_by ?? "ming") === "ming").map((r) => ({ id: r.id, name: r.name }))}
+          presetTrees={state.preset_trees}
           onClose={() => setIssueEditorOpen(false)}
           onSaved={async () => {
             setIssueEditorOpen(false);

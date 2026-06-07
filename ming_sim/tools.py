@@ -801,7 +801,12 @@ def build_extractor_tools(context: CourtContext):
         close_issues        结案/失败 [{issue_id,reason(resolved/failed),narrative}]
                             对照resolve_condition/fail_condition判，条件命中即报
                             不可崩坏局势（天灾/大旱等effect_on_fail为空）禁止reason=failed
-        fiscal_changes      制度性财政系数变化 [{key,delta,reason}]
+        fiscal_changes      制度性财政变化 [{key,mode,value,reason}]
+                            mode枚举：set_value(设为原始值)/delta_value(增减原始值)/
+                            set_amount(月额设为)/delta_amount(月额增减)/
+                            scale_amount(月额按比例增减，value填百分比，削三成=-30)。
+                            例：宗室禄米总额减至每月30万两 → {key:"宗室禄米_base",mode:"set_amount",value:30}
+                            同段口径互相算不通（减至X、实减Y、从A到B矛盾）则留空，不猜增量。
                             key只从财政系数表选：田赋_rate/辽饷_base/辽饷_rate/盐税_base/盐税_rate/
                             商税_base/商税_rate/皇庄_base/皇庄_rate/织造_base/织造_rate/矿税_base/矿税_rate/
                             宗室禄米_base/宗室禄米_rate/官俸_base/官俸_rate/工程_base/工程_rate/
@@ -840,7 +845,7 @@ def build_extractor_tools(context: CourtContext):
           "new_issues": [{"kind":"initiative","title":"火器营试设","origin_kind":"decree","bar_value":20,"expected_months":10,"stage_text":"...","resolve_condition":"...","fail_condition":"...","ongoing_effects":{},"effect_on_resolve":{"metrics":{"皇威":3}},"effect_on_fail":{"metrics":{"皇威":-4}},"cancellable":"by_progress"}],
           "cancels": [],
           "close_issues": [{"issue_id":9,"reason":"resolved","narrative":"..."}],
-          "fiscal_changes": [],
+          "fiscal_changes": [{"key":"商税_base","mode":"delta_value","value":10,"reason":"加征商税"}],
           "appointments": [],
           "character_status_changes": [{"name":"魏忠贤","status":"流放","reason":"发配凤阳"}],
           "office_changes": [{"name":"孙传庭","new_office":"陕西总督","new_office_type":"督抚","reason":"永城知县擢用"}]

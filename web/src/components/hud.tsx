@@ -601,7 +601,7 @@ export function BudgetList({ title, items, expense = false }: { title: string; i
         <span className="budget-row" key={`${title}-${item.name}`}>
           <span>
             <b>{item.name}</b>
-            <small>{item.note}</small>
+            <small>{item.formula ? `${item.formula_kind === "per_basis" ? "税基" : "基准"} ${item.formula} = ${formatMoney(item.amount)} · ${item.note}` : item.note}</small>
           </span>
           <strong className={expense ? "expense" : "income"}>{expense ? "-" : "+"}{formatMoney(item.amount)}</strong>
         </span>

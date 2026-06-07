@@ -1079,6 +1079,7 @@ function App() {
         closedIssues={state.closed_this_turn || []}
         maxDecreeIssues={state.max_decree_issues ?? 10}
         regions={(state.regions || []).filter((r) => (r.controlled_by ?? "ming") === "ming").map((r) => ({ id: r.id, name: r.name }))}
+        presetTrees={state.preset_trees}
         onChanged={() => loadState()}
         onClose={() => setSituationDrawerOpen(false)}
       />

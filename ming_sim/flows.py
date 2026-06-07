@@ -10,6 +10,35 @@ from ming_sim.db import GameDB
 from ming_sim.models import GameState
 
 
+_FISCAL_BASIS_LABELS = {
+    "population": "人口",
+    "registered_land": "在册田亩",
+    "hidden_land": "隐田",
+    "guan_min_tian": "官民田",
+    "wang_tian": "藩王庄田",
+    "huang_tian": "皇庄",
+}
+
+
+def _basis_total(db: GameDB, basis: str) -> int:
+    """动态税基合计。人口单位=万人；田地单位=万亩。"""
+    if basis in {"population", "registered_land", "hidden_land"}:
+        row = db.conn.execute(f"SELECT SUM({basis}) AS total FROM regions").fetchone()
+        return int(row["total"] or 0)
+    if basis in {"guan_min_tian", "wang_tian", "huang_tian"}:
+        row = db.conn.execute(
+            f"SELECT SUM(COALESCE(json_extract(fiscal, '$.{basis}'), 0)) AS total FROM regions"
+        ).fetchone()
+        return int(row["total"] or 0)
+    return 0
+
+
+def _dynamic_basis_tax_amount(basis_total: int, rate_value: int, rate_unit: str, collect_rate: int) -> int:
+    """税基单位是万人/万亩。rate_unit 含“毫”时 rate_value=毫/人(亩)/年，否则按两/人(亩)/年。"""
+    unit_divisor = 10000 if "毫" in str(rate_unit or "") else 1
+    return round(basis_total * rate_value / unit_divisor / 12 * collect_rate / 100)
+
+
 # ── 省级财政计算 ──────────────────────────────────────────────────────────────
 # 田赋/皇庄亩率（毫/亩/年）走 fiscal_config（田赋亩率_base / 皇庄亩率_base），可后台调/随改革变。
 # 田赋省可在 fiscal.tian_fu_li 覆盖全局。史实锚点：田赋250毫≈0.025两/亩(全国1560万/年)，
@@ -161,9 +190,38 @@ def compute_budget_lines(db: GameDB, state: GameState) -> Dict[str, Dict[str, li
     for item in db.iter_budget_items():
         base_key = str(item["key"])
         rate_key = base_key[:-5] + "_rate"  # 去 _base 换 _rate
-        amount = round(int(cfg.get(base_key, 0)) * cfg.get(rate_key, 100) / 100)
+        base = int(cfg.get(base_key, 0))
+        rate = int(cfg.get(rate_key, 100))
+        formula_kind = str(item.get("formula") or "")
+        basis = str(item.get("basis") or "")
+        basis_total = _basis_total(db, basis) if formula_kind == "per_basis" else 0
+        if formula_kind == "per_basis" and basis_total > 0:
+            amount = _dynamic_basis_tax_amount(basis_total, base, str(item.get("rate_unit") or ""), rate)
+            basis_label = _FISCAL_BASIS_LABELS.get(basis, basis)
+            unit_divisor_text = "/10000" if "毫" in str(item.get("rate_unit") or "") else ""
+            formula_text = f"{basis_label}{basis_total}×{base}{unit_divisor_text}/12×{rate}%"
+            note = str(item.get("note") or "")
+            if item.get("rate_unit"):
+                note = f"{note}（{item['rate_unit']}）" if note else str(item["rate_unit"])
+        else:
+            amount = round(base * rate / 100)
+            formula_text = f"{base}万×{rate}%"
+            note = str(item.get("note") or "")
         budget[str(item["account"])][str(item["direction"])].append(
-            {"name": str(item["display"]), "amount": int(amount), "note": str(item.get("note") or "")}
+            {
+                "name": str(item["display"]),
+                "amount": int(amount),
+                "note": note,
+                "base_key": base_key,
+                "rate_key": rate_key,
+                "base": base,
+                "rate": rate,
+                "formula": formula_text,
+                "formula_kind": formula_kind,
+                "basis": basis,
+                "basis_total": basis_total,
+                "rate_unit": str(item.get("rate_unit") or ""),
+            }
         )
 
     # 建筑：按当前 condition 折算月产出/维护。内廷类维护扣内库，余扣国库；产出按 output_metric。

@@ -14,7 +14,8 @@
       "effect_on_resolve": {"国势": {"皇威": 3}, "departments": [{"action": "create", "key": "junjichu"}]},
       "effect_on_fail": {"国势": {"皇威": -2}},
       "modifiers": {"皇威": 5},
-      "effect_summary": "中枢决断提速，皇命直贯，皇威大振"
+      "effect_summary": "中枢决断提速，皇命直贯，皇威大振",
+      "requires": ["qingyuan_si"]
     },
     {
       "key": "lianzheng_gongshu", "name": "廉政公署", "category": "政治", "题材": "政治",
@@ -27,7 +28,8 @@
       "effect_on_resolve": {"国势": {"皇威": 2}, "departments": [{"action": "create", "key": "lianzheng_gongshu"}]},
       "effect_on_fail": {"国势": {"民心": -2}},
       "modifiers": {"regions": {"beizhili": {"corruption": -5}, "nanzhili": {"corruption": -5}, "shandong": {"corruption": -5}, "shanxi": {"corruption": -5}, "henan": {"corruption": -5}, "shaanxi": {"corruption": -5}, "zhejiang": {"corruption": -5}, "jiangxi": {"corruption": -5}, "huguang": {"corruption": -5}, "sichuan": {"corruption": -5}, "fujian": {"corruption": -5}, "guangdong": {"corruption": -5}, "guangxi": {"corruption": -5}, "yunnan": {"corruption": -5}, "guizhou": {"corruption": -5}}},
-      "effect_summary": "吏治为之一肃，各省贪墨渐敛"
+      "effect_summary": "吏治为之一肃，各省贪墨渐敛",
+      "requires": ["tongjiju"]
     },
     {
       "key": "caizheng_bu", "name": "财政部", "category": "政治", "题材": "政治",
@@ -40,7 +42,8 @@
       "effect_on_resolve": {"国势": {"国库": 0}, "钱粮": [{"账户": "国库", "增量": 10, "分类": "稽查清欠", "原因": "财政部统会两库、追补亏空"}], "departments": [{"action": "create", "key": "caizheng_bu"}]},
       "effect_on_fail": {"国势": {"皇威": -1}},
       "modifiers": {"国库": 4},
-      "effect_summary": "钱粮统于一署，亏空稽查趋严，国库渐充"
+      "effect_summary": "钱粮统于一署，亏空稽查趋严，国库渐充",
+      "requires": ["tongjiju"]
     },
     {
       "key": "tongjiju", "name": "统计局", "category": "政治", "题材": "政治",
@@ -53,7 +56,8 @@
       "effect_on_resolve": {"钱粮": [{"账户": "国库", "增量": 8, "分类": "清丈增赋", "原因": "隐田渐入鱼鳞册"}], "departments": [{"action": "create", "key": "tongjiju"}]},
       "effect_on_fail": {"国势": {"民心": -1}},
       "modifiers": {"国库": 3},
-      "effect_summary": "户口田亩渐明，隐占之弊稍减"
+      "effect_summary": "户口田亩渐明，隐占之弊稍减",
+      "requires": []
     },
     {
       "key": "qingyuan_si", "name": "情报司", "category": "政治", "题材": "政治",
@@ -66,7 +70,8 @@
       "effect_on_resolve": {"国势": {"皇威": 1}, "departments": [{"action": "create", "key": "qingyuan_si"}]},
       "effect_on_fail": {},
       "modifiers": {"皇威": 3},
-      "effect_summary": "边情敌势先知，庙算少误，皇威渐立"
+      "effect_summary": "边情敌势先知，庙算少误，皇威渐立",
+      "requires": []
     },
     {
       "key": "shuili_bu", "name": "水利部", "category": "政治", "题材": "政治",
@@ -79,7 +84,8 @@
       "effect_on_resolve": {"国势": {"民心": 2}, "departments": [{"action": "create", "key": "shuili_bu"}]},
       "effect_on_fail": {"国势": {"民心": -2}},
       "modifiers": {"民心": 4},
-      "effect_summary": "河漕渐治、旱涝少灾，民生稍安"
+      "effect_summary": "河漕渐治、旱涝少灾，民生稍安",
+      "requires": ["minzheng_bu"]
     },
     {
       "key": "minzheng_bu", "name": "民政部", "category": "政治", "题材": "政治",
@@ -92,7 +98,8 @@
       "effect_on_resolve": {"国势": {"民心": 3}, "departments": [{"action": "create", "key": "minzheng_bu"}]},
       "effect_on_fail": {"国势": {"民心": -3}},
       "modifiers": {"民心": 5},
-      "effect_summary": "流亡得抚、赈济有司，民心稍回"
+      "effect_summary": "流亡得抚、赈济有司，民心稍回",
+      "requires": []
     },
     {
       "key": "haiguan_zongshu", "name": "海关总署", "category": "政治", "题材": "政治",
@@ -105,7 +112,8 @@
       "effect_on_resolve": {"钱粮": [{"账户": "内库", "增量": 8, "分类": "市舶抽分", "原因": "海关榷海舶商税入内帑"}], "departments": [{"action": "create", "key": "haiguan_zongshu"}]},
       "effect_on_fail": {"国势": {"民心": -1}},
       "modifiers": {"内库": 4},
-      "effect_summary": "市舶抽分入库，海商税渐充内帑"
+      "effect_summary": "市舶抽分入库，海商税渐充内帑",
+      "requires": ["caizheng_bu"]
     },
     {
       "key": "junxu_bu", "name": "军需部", "category": "政治", "题材": "政治",
@@ -118,7 +126,8 @@
       "effect_on_resolve": {"departments": [{"action": "create", "key": "junxu_bu"}]},
       "effect_on_fail": {},
       "modifiers": {},
-      "effect_summary": "军需转输趋畅、克扣稍减，边军欠饷渐纾"
+      "effect_summary": "军需转输趋畅、克扣稍减，边军欠饷渐纾",
+      "requires": ["caizheng_bu"]
     },
     {
       "key": "lifan_yuan", "name": "理藩院", "category": "政治", "题材": "政治",
@@ -131,7 +140,8 @@
       "effect_on_resolve": {"国势": {"皇威": 2}, "departments": [{"action": "create", "key": "lifan_yuan"}]},
       "effect_on_fail": {"国势": {"皇威": -1}},
       "modifiers": {"皇威": 2},
-      "effect_summary": "外藩羁縻有司、封贡渐理，边衅稍弭"
+      "effect_summary": "外藩羁縻有司、封贡渐理，边衅稍弭",
+      "requires": ["qingyuan_si"]
     }
   ]
 }

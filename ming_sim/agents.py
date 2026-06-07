@@ -194,8 +194,6 @@ def run_agent_stream_text(
                     if chunk:
                         on_thinking(chunk)
                         reasoning_streamed_chars += len(chunk)
-                    if reasoning_streamed_chars >= _THINKING_STREAM_CHAR_LIMIT:
-                        on_thinking("\n〔思考已截断，继续推演中〕\n")
                 reasoning_buf.clear()
                 reasoning_chars_since_flush = 0
                 reasoning_last_print = now
@@ -236,8 +234,6 @@ def run_agent_stream_text(
             if chunk:
                 on_thinking(chunk)
                 reasoning_streamed_chars += len(chunk)
-            if reasoning_streamed_chars >= _THINKING_STREAM_CHAR_LIMIT:
-                on_thinking("\n〔思考已截断，继续推演中〕\n")
     if chunk_buf:
         merged = "".join(chunk_buf).replace("\n", " ⏎ ")
         tlog(f"[{tag}] …{merged[-160:]}")

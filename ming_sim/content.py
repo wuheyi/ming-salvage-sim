@@ -344,6 +344,7 @@ def load_preset_departments() -> Dict[str, PresetDepartment]:
             fail_condition=str_field(entry, "fail_condition", path),
             effect_on_resolve=require_dict(entry.get("effect_on_resolve"), f"{path}.effect_on_resolve"),
             effect_on_fail=require_dict(entry.get("effect_on_fail"), f"{path}.effect_on_fail"),
+            requires=string_list(entry.get("requires", []), f"{path}.requires"),
         )
     if not out:
         raise SystemExit("preset_departments.json 必须至少定义一项预设衙门。")
@@ -373,6 +374,8 @@ def load_preset_technologies() -> Dict[str, PresetTechnology]:
             fail_condition=str_field(entry, "fail_condition", path),
             effect_on_resolve=require_dict(entry.get("effect_on_resolve"), f"{path}.effect_on_resolve"),
             effect_on_fail=require_dict(entry.get("effect_on_fail"), f"{path}.effect_on_fail"),
+            requires=string_list(entry.get("requires", []), f"{path}.requires"),
+            default_unlocked=bool(entry.get("default_unlocked", False)),
         )
     if not out:
         raise SystemExit("preset_technologies.json 必须至少定义一项预设科技。")
@@ -459,6 +462,9 @@ def load_fiscal_config() -> "List[Dict[str, object]]":
             "budget_role": role,
             "note": str_field(item, "note", path),
             "order": int(item["order"]) if "order" in item else 9999,
+            "formula": str(item.get("formula") or ""),
+            "basis": str(item.get("basis") or ""),
+            "rate_unit": str(item.get("rate_unit") or ""),
         }
         # fixed 的 base 项必须给 account/direction/display；flows 据此生成预算行。
         if role == "fixed" and kind == "base":

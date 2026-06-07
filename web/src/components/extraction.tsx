@@ -1,7 +1,7 @@
 import React from "react";
 import { api } from "../api";
 import { FullscreenModal } from "./hud";
-import { SAT_LEV_CN, cnField, cnValue, fiscalKeyLabel, labelArmy, labelClass, labelIssue, labelPower, labelRegion } from "../format";
+import { SAT_LEV_CN, cnField, cnValue, fiscalKeyLabel, formatMoney, labelArmy, labelClass, labelIssue, labelPower, labelRegion } from "../format";
 import type { ExtractionData } from "../types";
 
 export function ExtractionModal({ onClose }: { onClose: () => void }) {
@@ -95,7 +95,7 @@ export function ExtractionView({ data, loading, error }: { data: ExtractionData 
       <ExtractionSection title="势力变化">
         <EntityDeltaBlock data={pickField(out, "势力变化", "power_updates")} labelFn={labelPower} />
       </ExtractionSection>
-      <ExtractionSection title="财政系数">
+      <ExtractionSection title="财政制度">
         <FiscalBlock data={pickField(out, "财政制度变化", "fiscal_changes")} />
       </ExtractionSection>
       <ExtractionSection title="外交关系">
@@ -314,16 +314,62 @@ export function FiscalBlock({ data }: { data: any }) {
   if (isEmptyData(data) || !Array.isArray(data)) return <p className="extraction-empty">无</p>;
   return (
     <ul className="extraction-list">
-      {data.map((it: any, i: number) => (
-        <li key={i}>
-          <b className={Number(pickItem(it, "增量", "delta")) >= 0 ? "good" : "bad"}>
-            {fiscalKeyLabel(pickItem(it, "键", "key"))} {fmtDelta(pickItem(it, "增量", "delta"))}
-          </b>
-          {pickItem(it, "原因", "reason") ? <span>{pickItem(it, "原因", "reason")}</span> : null}
-        </li>
-      ))}
+      {data.map((it: any, i: number) => {
+        const text = fiscalChangeText(it);
+        return (
+          <li key={i}>
+            <b className={text.tone}>{text.title}</b>
+            {text.detail ? <span>{text.detail}</span> : null}
+            {pickItem(it, "原因", "reason") ? <span className="extraction-narr">{pickItem(it, "原因", "reason")}</span> : null}
+          </li>
+        );
+      })}
     </ul>
   );
+}
+
+export function fiscalChangeText(it: any): { title: string; detail: string; tone: "good" | "bad" | "" } {
+  const key = pickItem(it, "键", "key");
+  const label = fiscalKeyLabel(key);
+  const mode = String(pickItem(it, "口径", "mode") || "").trim();
+  const value = pickItem(it, "数值", "value");
+  const delta = pickItem(it, "增量", "delta");
+  const oldVal = pickItem(it, "旧值", "old");
+  const newVal = pickItem(it, "新值", "new");
+  const oldAmount = pickItem(it, "旧月额", "old_amount");
+  const newAmount = pickItem(it, "新月额", "new_amount");
+  const valueNum = Number(value);
+  const deltaNum = Number(delta);
+  const amountDetail = Number.isFinite(Number(oldAmount)) && Number.isFinite(Number(newAmount))
+    ? `月额 ${formatMoney(Number(oldAmount))} → ${formatMoney(Number(newAmount))}`
+    : "";
+  if (mode) {
+    if (mode === "set_amount" || mode === "月额设为") {
+      return { title: `${label}月额设为 ${formatMoney(valueNum)}`, detail: amountDetail, tone: "bad" };
+    }
+    if (mode === "delta_amount" || mode === "月额增减") {
+      return { title: `${label}月额${fmtDelta(valueNum)}万`, detail: amountDetail, tone: valueNum >= 0 ? "good" : "bad" };
+    }
+    if (mode === "scale_amount" || mode === "月额按比例增减") {
+      return { title: `${label}月额按比例 ${fmtDelta(valueNum)}%`, detail: amountDetail, tone: valueNum >= 0 ? "good" : "bad" };
+    }
+    if (mode === "set_value" || mode === "设为原始值") {
+      const detail = Number.isFinite(Number(oldVal)) && Number.isFinite(Number(newVal)) ? `原值 ${oldVal} → ${newVal}` : amountDetail;
+      return { title: `${label}设为 ${value}`, detail, tone: "" };
+    }
+    if (mode === "delta_value" || mode === "增减原始值") {
+      const detail = Number.isFinite(Number(oldVal)) && Number.isFinite(Number(newVal)) ? `原值 ${oldVal} → ${newVal}${amountDetail ? `；${amountDetail}` : ""}` : amountDetail;
+      return { title: `${label}${fmtDelta(valueNum)}`, detail, tone: valueNum >= 0 ? "good" : "bad" };
+    }
+  }
+  if (delta !== undefined && delta !== null && delta !== "") {
+    return {
+      title: `${label}旧式调整 ${fmtDelta(deltaNum)}`,
+      detail: "缺少“减到多少 / 减多少 / 减百分比”口径，旧记录仅供追溯，不建议按此理解落地值",
+      tone: deltaNum >= 0 ? "good" : "bad",
+    };
+  }
+  return { title: label, detail: "", tone: "" };
 }
 
 

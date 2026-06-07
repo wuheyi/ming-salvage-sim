@@ -12,7 +12,8 @@
       "effect_on_resolve": {"国势": {"民心": 2}, "technologies": [{"action": "create", "key": "huafei"}]},
       "effect_on_fail": {"国势": {"民心": -1}},
       "modifiers": {"regions": {"beizhili": {"unrest": -10}, "nanzhili": {"unrest": -10}, "shandong": {"unrest": -10}, "shanxi": {"unrest": -10}, "henan": {"unrest": -10}, "shaanxi": {"unrest": -10}, "zhejiang": {"unrest": -10}, "jiangxi": {"unrest": -10}, "huguang": {"unrest": -10}, "sichuan": {"unrest": -10}, "fujian": {"unrest": -10}, "guangdong": {"unrest": -10}, "guangxi": {"unrest": -10}, "yunnan": {"unrest": -10}, "guizhou": {"unrest": -10}}},
-      "effect_summary": "粪壤之法大进，亩产骤增，各省粮足而民变难起"
+      "effect_summary": "粪壤之法大进，亩产骤增，各省粮足而民变难起",
+      "requires": ["liangzhong_gailiang"], "default_unlocked": false
     },
     {
       "key": "huoqi_xinfa", "name": "火器新法", "category": "科技", "题材": "科技",
@@ -23,7 +24,8 @@
       "effect_on_resolve": {"technologies": [{"action": "create", "key": "huoqi_xinfa"}]},
       "effect_on_fail": {"国势": {"国库": 0}, "钱粮": [{"账户": "国库", "增量": -5, "分类": "试铸折损", "原因": "火器新法试铸废件、料工耗损"}]},
       "modifiers": {"armies": {"guanning": {"equipment": 5}}},
-      "effect_summary": "铳炮规制划一、火药提纯，京营边军火力大进"
+      "effect_summary": "铳炮规制划一、火药提纯，京营边军火力大进",
+      "requires": ["yishu_yisuan", "kuangye_yelian"], "default_unlocked": false
     },
     {
       "key": "lianbing_xinzhi", "name": "练兵新制", "category": "科技", "题材": "科技",
@@ -34,7 +36,8 @@
       "effect_on_resolve": {"technologies": [{"action": "create", "key": "lianbing_xinzhi"}]},
       "effect_on_fail": {"国势": {"皇威": -1}},
       "modifiers": {"armies": {"guanning": {"training": 5}}},
-      "effect_summary": "营操规章一新、汰弱补强，诸军训练有素"
+      "effect_summary": "营操规章一新、汰弱补强，诸军训练有素",
+      "requires": [], "default_unlocked": false
     },
     {
       "key": "zhongdou_fazhong", "name": "种痘法", "category": "科技", "题材": "科技",
@@ -45,7 +48,8 @@
       "effect_on_resolve": {"国势": {"民心": 2}, "technologies": [{"action": "create", "key": "zhongdou_fazhong"}]},
       "effect_on_fail": {"国势": {"民心": -1}},
       "modifiers": {"民心": 4},
-      "effect_summary": "痘疹得防、疫死大减，民间生齿渐复"
+      "effect_summary": "痘疹得防、疫死大减，民间生齿渐复",
+      "requires": ["yishu_yisuan"], "default_unlocked": false
     },
     {
       "key": "shuangji_zhi", "name": "复式记账", "category": "科技", "题材": "科技",
@@ -56,7 +60,8 @@
       "effect_on_resolve": {"钱粮": [{"账户": "国库", "增量": 6, "分类": "稽核追欠", "原因": "复式记账厘清账目、稽出冒销"}], "technologies": [{"action": "create", "key": "shuangji_zhi"}]},
       "effect_on_fail": {},
       "modifiers": {"国库": 3},
-      "effect_summary": "出入两清、账目难欺，钱粮稽核之弊大减"
+      "effect_summary": "出入两清、账目难欺，钱粮稽核之弊大减",
+      "requires": [], "default_unlocked": true
     },
     {
       "key": "liangzhong_gailiang", "name": "良种改良", "category": "科技", "题材": "科技",
@@ -67,7 +72,8 @@
       "effect_on_resolve": {"technologies": [{"action": "create", "key": "liangzhong_gailiang"}]},
       "effect_on_fail": {},
       "modifiers": {"regions": {"shaanxi": {"unrest": -8}, "shanxi": {"unrest": -8}, "henan": {"unrest": -8}, "shandong": {"unrest": -8}}},
-      "effect_summary": "择优育种、推广耐旱稻麦，北方荒年少绝收、民变渐息"
+      "effect_summary": "择优育种、推广耐旱稻麦，北方荒年少绝收、民变渐息",
+      "requires": [], "default_unlocked": false
     },
     {
       "key": "fanche_shuili", "name": "翻车水利", "category": "科技", "题材": "科技",
@@ -78,7 +84,8 @@
       "effect_on_resolve": {"technologies": [{"action": "create", "key": "fanche_shuili"}]},
       "effect_on_fail": {},
       "modifiers": {"regions": {"huguang": {"unrest": -6}, "jiangxi": {"unrest": -6}, "sichuan": {"unrest": -6}}},
-      "effect_summary": "龙骨翻车广布、灌溉便利，旱田得水、岁稔民安"
+      "effect_summary": "龙骨翻车广布、灌溉便利，旱田得水、岁稔民安",
+      "requires": [], "default_unlocked": true
     },
     {
       "key": "kuangye_yelian", "name": "矿冶炼法", "category": "科技", "题材": "科技",
@@ -89,7 +96,8 @@
       "effect_on_resolve": {"钱粮": [{"账户": "内库", "增量": 5, "分类": "矿冶增产", "原因": "鼓风炼法铁产倍增、矿税渐充"}], "technologies": [{"action": "create", "key": "kuangye_yelian"}]},
       "effect_on_fail": {},
       "modifiers": {"内库": 3},
-      "effect_summary": "鼓风炼铁之法精进，铁产倍增、军械有料"
+      "effect_summary": "鼓风炼铁之法精进，铁产倍增、军械有料",
+      "requires": [], "default_unlocked": false
     },
     {
       "key": "yishu_yisuan", "name": "译书译算", "category": "科技", "题材": "科技",
@@ -100,7 +108,8 @@
       "effect_on_resolve": {"technologies": [{"action": "create", "key": "yishu_yisuan"}]},
       "effect_on_fail": {},
       "modifiers": {"皇威": 2},
-      "effect_summary": "西法历算舆图渐译，士子开眼、庙算少误"
+      "effect_summary": "西法历算舆图渐译，士子开眼、庙算少误",
+      "requires": [], "default_unlocked": true
     },
     {
       "key": "haichuan_xinzhi", "name": "海船新制", "category": "科技", "题材": "科技",
@@ -111,7 +120,8 @@
       "effect_on_resolve": {"technologies": [{"action": "create", "key": "haichuan_xinzhi"}]},
       "effect_on_fail": {},
       "modifiers": {"内库": 2},
-      "effect_summary": "福船广船规制改良、远洋有舰，海商水师并壮"
+      "effect_summary": "福船广船规制改良、远洋有舰，海商水师并壮",
+      "requires": ["kuangye_yelian"], "default_unlocked": false
     }
   ]
 }

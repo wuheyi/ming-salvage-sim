@@ -5255,6 +5255,63 @@ button:disabled {
 .manual-issue-entity label {
   margin: 0;
 }
+.manual-issue-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.manual-issue-mode button {
+  min-height: 30px;
+  border: 1px solid rgba(98, 70, 34, 0.28);
+  border-radius: 5px;
+  background: rgba(255, 252, 242, 0.72);
+  color: #65472a;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.manual-issue-mode button.active {
+  background: rgba(126, 42, 28, 0.12);
+  border-color: rgba(126, 42, 28, 0.46);
+  color: #7e2a1c;
+}
+.manual-preset-tree {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+.manual-preset-node {
+  min-height: 58px;
+  padding: 7px 8px;
+  border: 1px solid rgba(98, 70, 34, 0.26);
+  border-radius: 6px;
+  background: rgba(255, 252, 242, 0.72);
+  color: #5d4024;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+.manual-preset-node span,
+.manual-preset-node small {
+  display: block;
+}
+.manual-preset-node span {
+  font-weight: 800;
+  font-size: 0.83rem;
+}
+.manual-preset-node small {
+  margin-top: 3px;
+  color: #84684a;
+  font-size: 0.68rem;
+  line-height: 1.3;
+}
+.manual-preset-node.active {
+  background: rgba(126, 42, 28, 0.13);
+  border-color: rgba(126, 42, 28, 0.5);
+}
+.manual-preset-node.locked {
+  opacity: 0.58;
+}
 .manual-issue-hint {
   font-weight: 400;
   font-size: 0.72rem;

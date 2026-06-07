@@ -226,6 +226,24 @@ class _SeedMixin:
                         building.status,
                     ),
                 )
+        if not self.table_has_rows("technologies"):
+            for tech in self.content.preset_technologies.values():
+                if not getattr(tech, "default_unlocked", False):
+                    continue
+                self.conn.execute(
+                    """
+                    INSERT INTO technologies
+                    (id, name, category, effect_summary, status, origin, created_turn)
+                    VALUES (?, ?, ?, ?, ?, 'preset', 0)
+                    """,
+                    (
+                        f"preset_{tech.key}",
+                        tech.name,
+                        tech.category,
+                        tech.effect_summary,
+                        "开局已研成。",
+                    ),
+                )
         if not self.table_has_rows("events"):
             for event in (*self.content.events, *self.content.seed_events):
                 self.conn.execute(

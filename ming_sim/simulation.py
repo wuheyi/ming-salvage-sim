@@ -18,6 +18,61 @@ from ming_sim.models import GameState
 from ming_sim.token_stats import tlog
 
 
+REGION_FISCAL_FIELD_NOTE = (
+    "地区财政字段字典：registered_land=在册田亩万亩（黄册登记，含官民田+藩王庄田+皇庄）；"
+    "hidden_land=隐田万亩（账外逃赋田，清丈可转入官民田）；"
+    "guan_min_tian=官民田万亩（可征田赋，田赋入国库）；"
+    "wang_tian=藩王庄田万亩（宗藩免税庄田，通常不入田赋，侵占民田会压低官民田/形成隐田）；"
+    "huang_tian=皇庄万亩（皇室直辖，地租入内库）；"
+    "tian_fu_li=本省田赋亩率，单位毫/亩/年，省值覆盖全局田赋亩率；"
+    "liao_xiang=本省辽饷月基数万两；salt_tax=盐税月基数万两；"
+    "commerce_tax=商税月基数万两；corruption=腐败度0-100；"
+    "grain_output=粮食年产万石；grain_stock=可调余粮万石。"
+    "清丈口径：查出隐田时，优先写 hidden_land 下降、registered_land 上升、guan_min_tian 上升；"
+    "若清查藩王/皇庄侵占，按叙事把 wang_tian 或 huang_tian 转出，并同步转入 guan_min_tian 或 hidden_land。"
+)
+
+
+def _fiscal_reference_lines(db: GameDB) -> List[Dict[str, object]]:
+    cfg = db.get_fiscal_config()
+    rows: List[Dict[str, object]] = []
+    for item in db.iter_budget_items():
+        base_key = str(item["key"])
+        stem = base_key[:-5] if base_key.endswith("_base") else base_key
+        rate_key = f"{stem}_rate"
+        base = int(cfg.get(base_key, 0))
+        rate = int(cfg.get(rate_key, 100))
+        amount = round(base * rate / 100)
+        rows.append({
+            "display": str(item["display"]),
+            "base_key": base_key,
+            "rate_key": rate_key,
+            "base": base,
+            "rate": rate,
+            "monthly_amount": amount,
+            "formula": f"{base}×{rate}%={amount}万/月",
+            "direction": str(item["direction"]),
+            "account": str(item["account"]),
+        })
+    return rows
+
+
+def _economy_system_brief(db: GameDB) -> str:
+    lines = [
+        "经济体系口径：财政固定月收支按 fiscal_config 的 base×rate/100 计算，base 是月度万两基准，rate 是实收/实发比例%。",
+        "写财政制度变化必须先看当前公式；不得把满额100%、当前rate、目标月额混用。",
+        "若诏令说“减至/压至每月X万两”，这是目标月额，程序应反推 rate；若说“每月减X万两”，这是月额增减；若说“削三成/减30%”，这是按当前月额比例削减；若说“实发率降到X%”，才是 rate 设为X。",
+        "同段叙事若同时出现互相算不通的数字（例如“压至三十万”又说“实减仅二万”），视为执行受阻或叙事矛盾，不写财政制度变化，只写派系/阶级/局势后果。",
+    ]
+    for row in _fiscal_reference_lines(db):
+        if row["display"] in {"宗室禄米", "百官俸禄"}:
+            lines.append(
+                f"当前{row['display']}：{row['base_key']}={row['base']}万，"
+                f"{row['rate_key']}={row['rate']}%，月支={row['formula']}。"
+            )
+    return "\n".join(lines)
+
+
 def _load_hitl_min_decisions() -> int:
     """全局玩法设置：本回合 simulator 最多应产出的决策点数（0=关闭 HITL 注入）。失败回落 1。"""
     try:
@@ -46,6 +101,7 @@ TOP_LEVEL_ALIASES = {
     "新立局势": "new_issues",
     "撤销局势": "cancels",
     "结案局势": "close_issues",
+    "人物变化": "character_changes",
     "人事变更": "office_changes",
     "人物状态变化": "character_status_changes",
     "人物易主": "character_power_changes",
@@ -122,12 +178,20 @@ ITEM_FIELD_ALIASES = {
     "new_office_type": "new_office_type", "新官署类别": "new_office_type",
     "faction": "faction", "派系": "faction",
     "status": "status", "状态": "status",
+    "location": "location", "所在地": "location", "当前所在": "location",
     "office": "office", "位号": "office", "官职": "office",
     "office_type": "office_type", "官署类别": "office_type",
     "approved": "approved", "准许": "approved",
     "order_id": "order_id", "密令编号": "order_id",
     "sim_note": "sim_note", "推演备注": "sim_note",
     "result": "result", "结果": "result",
+    "mode": "mode", "口径": "mode", "方式": "mode",
+    "value": "value", "数值": "value", "目标": "value", "目标值": "value",
+    "target": "value", "target_value": "value",
+    "amount": "value", "月额": "value", "月支": "value",
+    "formula": "formula", "公式": "formula", "计税公式": "formula",
+    "basis": "basis", "计税依据": "basis", "税基": "basis",
+    "rate_unit": "rate_unit", "税率单位": "rate_unit",
     "stance": "stance", "立场": "stance",
     "action": "action", "行动": "action",
     "impact": "impact", "影响": "impact",
@@ -275,6 +339,13 @@ def build_simulator_payload(
             "SELECT name,kind,population,public_support,unrest,natural_disaster,"
             "human_disaster,registered_land,hidden_land,tax_per_turn,"
             "gentry_resistance,military_pressure,status,controlled_by,"
+            "json_extract(fiscal,'$.guan_min_tian') as guan_min_tian,"
+            "json_extract(fiscal,'$.wang_tian') as wang_tian,"
+            "json_extract(fiscal,'$.huang_tian') as huang_tian,"
+            "json_extract(fiscal,'$.tian_fu_li') as tian_fu_li,"
+            "json_extract(fiscal,'$.liao_xiang') as liao_xiang,"
+            "json_extract(fiscal,'$.salt_tax') as salt_tax,"
+            "json_extract(fiscal,'$.commerce_tax') as commerce_tax,"
             "json_extract(fiscal,'$.grain_output') as grain_output,"
             "json_extract(fiscal,'$.grain_stock') as grain_stock,"
             "json_extract(fiscal,'$.corruption') as corruption FROM regions ORDER BY id"
@@ -319,7 +390,7 @@ def build_simulator_payload(
         "secret_orders": secret_orders or [],
         # HITL：本回合 simulator 最多应产出的重大决策点数（全局玩法设置，0=关闭 HITL 注入）。
         "hitl_min_decisions": _load_hitl_min_decisions(),
-        "data_note": "盘面表（buildings/departments/technologies/court_roster/armies/regions）在本输入的开头以 TSV 文本块给出（首行列名、tab 分隔、每行一条记录），不在本 JSON 内；本 JSON 只含其余字段（含 powers_brief/factions_brief/classes_brief 叙述串、active_issues 等）。departments=已设衙门，technologies=已解锁科技（均为玩家诏书所立）；空表只有表头。secret_orders 为皇帝密令列表，独立于 relevant_memories；progress/sim_note 是精简时间线，每条仅含 id/time/narrative。",
+        "data_note": "盘面表（buildings/departments/technologies/court_roster/armies/regions）在本输入的开头以 TSV 文本块给出（首行列名、tab 分隔、每行一条记录），不在本 JSON 内；" + REGION_FISCAL_FIELD_NOTE + "本 JSON 只含其余字段（含 powers_brief/factions_brief/classes_brief 叙述串、active_issues 等）。departments=已设衙门，technologies=已解锁科技（均为玩家诏书所立）；空表只有表头。secret_orders 为皇帝密令列表，独立于 relevant_memories；progress/sim_note 是精简时间线，每条仅含 id/time/narrative。",
     }
 
 
@@ -405,6 +476,7 @@ EMPTY_EXTRACTION: Dict[str, object] = {
     "fiscal_creates": [],
     "fiscal_removes": [],
     "office_changes": [],
+    "character_changes": [],
     "appointments": [],
     "character_status_changes": [],
     "character_power_changes": [],
@@ -418,7 +490,7 @@ MODULE_FIELDS: Dict[str, set[str]] = {
     "military_external": {"army_delta", "new_armies", "power_updates", "world_advance"},
     "issues": {"issue_advances", "new_issues", "cancels", "close_issues"},
     "personnel_secret": {
-        "office_changes", "character_status_changes", "character_power_changes", "appointments",
+        "character_changes", "appointments",
         "secret_order_updates", "secret_order_closes", "emperor_fate",
     },
 }
@@ -482,6 +554,13 @@ def _extractor_context_payload(
             "SELECT id,name,kind,population,public_support,unrest,natural_disaster,"
             "human_disaster,registered_land,hidden_land,tax_per_turn,"
             "gentry_resistance,military_pressure,status,controlled_by,"
+            "json_extract(fiscal,'$.guan_min_tian') as guan_min_tian,"
+            "json_extract(fiscal,'$.wang_tian') as wang_tian,"
+            "json_extract(fiscal,'$.huang_tian') as huang_tian,"
+            "json_extract(fiscal,'$.tian_fu_li') as tian_fu_li,"
+            "json_extract(fiscal,'$.liao_xiang') as liao_xiang,"
+            "json_extract(fiscal,'$.salt_tax') as salt_tax,"
+            "json_extract(fiscal,'$.commerce_tax') as commerce_tax,"
             "json_extract(fiscal,'$.grain_output') as grain_output,"
             "json_extract(fiscal,'$.grain_stock') as grain_stock,"
             "json_extract(fiscal,'$.corruption') as corruption FROM regions ORDER BY id"
@@ -529,6 +608,9 @@ def _extractor_context_payload(
         "class_names": [r["name"] for r in db.conn.execute("SELECT DISTINCT name FROM classes ORDER BY name").fetchall()],
         "power_ids": [str(r["id"]) for r in db.conn.execute("SELECT id FROM powers").fetchall()],
         "fiscal_config": db.get_fiscal_config(),
+        "region_fiscal_field_note": REGION_FISCAL_FIELD_NOTE,
+        "economy_system": _economy_system_brief(db),
+        "fiscal_reference": _fiscal_reference_lines(db),
         "relevant_memories": relevant_memories or [],
         "secret_orders": secret_orders or [],
         "_format_note": "offstage_ministers（及未剔除时的盘面表）为 header+二维数组（cols 列名 + rows 数据）。",
@@ -557,6 +639,9 @@ def _extractor_compat_payload(base: Dict[str, object]) -> Dict[str, object]:
         "class_names": base["class_names"],
         "power_ids": base["power_ids"],
         "fiscal_config": base["fiscal_config"],
+        "region_fiscal_field_note": base["region_fiscal_field_note"],
+        "economy_system": base["economy_system"],
+        "fiscal_reference": base["fiscal_reference"],
         "relevant_memories": base["relevant_memories"],
         "secret_orders": base["secret_orders"],
         "_format_note": base["_format_note"],
@@ -608,7 +693,8 @@ def build_extractor_shared_context(
         "（盘面表 regions/armies/buildings 走 TSV；court_roster 即在朝大臣；"
         "powers_brief/factions_brief/classes_brief 即势力/派系/阶级），抽取时直接读 simulator_payload。"
         "本 extractor_context 只补：校验用 id 集（region_ids/army_ids/class_names/power_ids）、"
-        "fiscal_config、offstage_ministers（离场名册，court_roster 不含，任命查重用）。"
+        "fiscal_config、region_fiscal_field_note、economy_system/fiscal_reference（当前财政公式/月额）、"
+        "offstage_ministers（离场名册，court_roster 不含，任命查重用）。"
     )
     return slim
 
@@ -669,7 +755,11 @@ def _localized_extraction(data: Dict[str, object]) -> Dict[str, object]:
     }
 
 
-def _sanitize_module_output(module: str, data: Dict[str, object]) -> Dict[str, object]:
+def _sanitize_module_output(
+    module: str,
+    data: Dict[str, object],
+    fiscal_config: Optional[Dict[str, int]] = None,
+) -> Dict[str, object]:
     allowed = MODULE_FIELDS[module]
     empty = {k: v for k, v in EMPTY_EXTRACTION.items() if k in allowed}
     if not isinstance(data, dict):
@@ -681,7 +771,10 @@ def _sanitize_module_output(module: str, data: Dict[str, object]) -> Dict[str, o
             cleaned[key] = data[key]
     if module == "internal":
         cleaned["economy_moves"] = _clean_economy_moves(cleaned.get("economy_moves"))
-        cleaned["fiscal_changes"] = _clean_fiscal_changes(cleaned.get("fiscal_changes"))
+        cleaned["fiscal_changes"] = _clean_fiscal_changes(
+            cleaned.get("fiscal_changes"),
+            fiscal_config=fiscal_config,
+        )
         cleaned["fiscal_creates"] = _clean_fiscal_creates(cleaned.get("fiscal_creates"))
         cleaned["fiscal_removes"] = _clean_fiscal_removes(cleaned.get("fiscal_removes"))
     if module == "military_external":
@@ -808,7 +901,10 @@ def _clean_economy_moves(raw: object) -> List[Dict[str, object]]:
     return cleaned
 
 
-def _clean_fiscal_changes(raw: object) -> List[Dict[str, object]]:
+def _clean_fiscal_changes(
+    raw: object,
+    fiscal_config: Optional[Dict[str, int]] = None,
+) -> List[Dict[str, object]]:
     cleaned: List[Dict[str, object]] = []
     if not isinstance(raw, list):
         return cleaned
@@ -819,25 +915,127 @@ def _clean_fiscal_changes(raw: object) -> List[Dict[str, object]]:
         if not isinstance(item, dict):
             continue
         key = str(item.get("key") or "").strip()
-        if not key or "delta" not in item:
+        if not key:
+            continue
+        mode = str(item.get("mode") or "").strip()
+        if not mode and key.startswith("宗室禄米_"):
+            continue
+        reason = str(item.get("reason") or "")[:120]
+        if _fiscal_reason_has_conflicting_amount(key, reason, fiscal_config or {}):
+            continue
+        value_obj = item.get("value") if "value" in item else item.get("delta")
+        if value_obj is None:
             continue
         try:
-            delta = int(item.get("delta"))
+            value = float(value_obj)
         except (TypeError, ValueError):
             continue
-        if delta == 0:
+        if value == 0 and (mode or "delta_value") != "set_value":
             continue
-        cleaned.append({
+        entry: Dict[str, object] = {
             "key": key,
-            "delta": delta,
-            "reason": str(item.get("reason") or "")[:120],
-        })
+            "reason": reason,
+        }
+        if mode:
+            entry["mode"] = mode
+        if "value" in item:
+            entry["value"] = value
+        else:
+            entry["delta"] = value
+        cleaned.append(entry)
     return cleaned
+
+
+_MONEY_CN_UNIT_RE = re.compile(r"([一二两三四五六七八九十百千万零〇\d.]+)\s*万?两")
+
+
+def _cn_money_to_wan(text: str) -> Optional[float]:
+    raw = text.strip()
+    if not raw:
+        return None
+    if raw.endswith("万"):
+        raw = raw[:-1]
+    try:
+        return float(raw)
+    except ValueError:
+        pass
+    digits = {"零": 0, "〇": 0, "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
+    if raw in digits:
+        return float(digits[raw])
+    if raw == "十":
+        return 10.0
+    if raw.endswith("十") and raw[:-1] in digits:
+        return float(digits[raw[:-1]] * 10)
+    if "百" in raw:
+        left, right = raw.split("百", 1)
+        hundreds = digits.get(left, 1 if left == "" else 0)
+        tail = _cn_money_to_wan(right) if right else 0
+        return float(hundreds * 100 + int(tail or 0))
+    if "十" in raw:
+        left, right = raw.split("十", 1)
+        tens = digits.get(left, 1 if left == "" else 0)
+        ones = digits.get(right, 0) if right else 0
+        return float(tens * 10 + ones)
+    return None
+
+
+def _extract_money_after(pattern: str, text: str) -> Optional[float]:
+    m = re.search(pattern + r"[^，。；、\d一二两三四五六七八九十百千万零〇]{0,16}" + _MONEY_CN_UNIT_RE.pattern, text)
+    if not m:
+        return None
+    return _cn_money_to_wan(m.group(1))
+
+
+def _fiscal_reason_has_conflicting_amount(key: str, reason: str, cfg: Dict[str, int]) -> bool:
+    if not key.startswith("宗室禄米_"):
+        return False
+    current = round(int(cfg.get("宗室禄米_base", 0)) * int(cfg.get("宗室禄米_rate", 100)) / 100)
+    target = _extract_money_after(r"(?:总额压至|总额减至|压至|减至|降至|定为)", reason)
+    actual_cut = _extract_money_after(r"(?:实际减少|实际减|实减|仅减|只减)(?:仅|只|约|仅约)?", reason)
+    if target is None or actual_cut is None:
+        return False
+    implied_cut = current - target
+    return abs(implied_cut - actual_cut) > 2
 
 
 _DIRECTION_NORMALIZE = {
     "income": "income", "收": "income", "收入": "income", "进账": "income",
     "expense": "expense", "支": "expense", "支出": "expense", "出账": "expense",
+}
+
+
+_FISCAL_CREATE_FORMULA_ALIASES = {
+    "": "",
+    "fixed": "",
+    "固定月额": "",
+    "per_basis": "per_basis",
+    "按税基": "per_basis",
+    "按计税依据": "per_basis",
+    "按人头": "per_basis",
+    "按田亩": "per_basis",
+}
+
+
+_FISCAL_CREATE_BASIS_ALIASES = {
+    "population": "population",
+    "人口": "population",
+    "人丁": "population",
+    "丁口": "population",
+    "人头": "population",
+    "registered_land": "registered_land",
+    "在册田亩": "registered_land",
+    "田亩": "registered_land",
+    "登记田亩": "registered_land",
+    "guan_min_tian": "guan_min_tian",
+    "官民田": "guan_min_tian",
+    "民田": "guan_min_tian",
+    "wang_tian": "wang_tian",
+    "藩王庄田": "wang_tian",
+    "藩田": "wang_tian",
+    "huang_tian": "huang_tian",
+    "皇庄": "huang_tian",
+    "hidden_land": "hidden_land",
+    "隐田": "hidden_land",
 }
 
 
@@ -869,14 +1067,25 @@ def _clean_fiscal_creates(raw: object) -> List[Dict[str, object]]:
         except (TypeError, ValueError):
             init_value = 0
         display = str(item.get("display") or "").strip() or key.replace("_base", "")
-        cleaned.append({
+        formula = _FISCAL_CREATE_FORMULA_ALIASES.get(str(item.get("formula") or "").strip())
+        if formula is None:
+            formula = ""
+        basis = _FISCAL_CREATE_BASIS_ALIASES.get(str(item.get("basis") or "").strip(), "")
+        if formula == "per_basis" and not basis:
+            continue
+        entry = {
             "key": key,
             "account": account,
             "direction": direction,
             "display": display,
             "init_value": max(0, init_value),
             "reason": str(item.get("reason") or "")[:120],
-        })
+        }
+        if formula:
+            entry["formula"] = formula
+            entry["basis"] = basis
+            entry["rate_unit"] = str(item.get("rate_unit") or "")[:40]
+        cleaned.append(entry)
     return cleaned
 
 
@@ -946,7 +1155,11 @@ def extract_scores_by_modules_with_agno(
             tlog(f"[extractor/{module}] 主输出解析失败：{parse_err}；调 sanitizer 重整")
             cleaned = run_agent_text(sanitizer, raw, tag=f"sanitizer/{module}")
             parsed = parse_agent_json(cleaned, f"结算抽取-{module}（sanitizer）")
-        module_outputs[module] = _sanitize_module_output(module, parsed)
+        module_outputs[module] = _sanitize_module_output(
+            module,
+            parsed,
+            fiscal_config=base_payload.get("fiscal_config") if isinstance(base_payload.get("fiscal_config"), dict) else None,
+        )
     merged = _merge_module_outputs(module_outputs)
     localized_merged = _localized_extraction(merged)
     trace_input = {

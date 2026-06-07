@@ -1165,6 +1165,7 @@ class WebGame:
             "regions": regions,
             "armies": self.db.army_payload(),
             "technologies": self.db.technology_payload(),
+            "preset_trees": _preset_tree_payload(self),
             "map_nodes": self.map_nodes(regions),
             "ministers": [
                 self.public_character(c)
@@ -2425,6 +2426,8 @@ class ManualIssueEntity(BaseModel):
     power: int = 50              # 权力值
     # 科技用：
     effect_summary: str = ""     # 效果摘要
+    # 预设池用：kind=department/technology 时可传 key，后端会用预设字段覆盖立项字段。
+    preset_key: str = ""
 
 
 class ManualIssueCreateRequest(BaseModel):
@@ -2437,13 +2440,13 @@ class ManualIssueCreateRequest(BaseModel):
     # 分类（题材），落 tags；与 ISSUE_THEMES 对齐。
     tags: list[str] = []
     # 走满后落成的实体固定字段（玩家填）。组装成 effect_on_resolve 立项即预埋，走满直接落地。
-    entity: ManualIssueEntity | None = None
+    entity: Optional[ManualIssueEntity] = None
 
 
 class ManualIssueUpdateRequest(BaseModel):
     # 注意：goal 立项后锁定，不在此可改。
-    title: str | None = None
-    duration_turns: int | None = None
+    title: Optional[str] = None
+    duration_turns: Optional[int] = None
 
 
 def _build_manual_resolve_effect(entity: "ManualIssueEntity | None", title: str) -> dict:
@@ -2463,12 +2466,18 @@ def _build_manual_resolve_effect(entity: "ManualIssueEntity | None", title: str)
             "output_amount": max(0, int(entity.output_amount or 0)),
         }]}
     if k == "department":
+        preset_key = (entity.preset_key or "").strip()
+        if preset_key:
+            return {"departments": [{"action": "create", "key": preset_key}]}
         return {"departments": [{
             "action": "create", "name": name,
             "authority_scope": (entity.authority_scope or "").strip(),
             "power": max(0, min(100, int(entity.power or 50))),
         }]}
     if k == "technology":
+        preset_key = (entity.preset_key or "").strip()
+        if preset_key:
+            return {"technologies": [{"action": "create", "key": preset_key}]}
         return {"technologies": [{
             "action": "create", "name": name, "category": "科技",
             "effect_summary": (entity.effect_summary or "").strip(),
@@ -2476,12 +2485,134 @@ def _build_manual_resolve_effect(entity: "ManualIssueEntity | None", title: str)
     return {}
 
 
+def _technology_names_by_preset_key(game: "WebGame") -> dict[str, str]:
+    return {key: preset.name for key, preset in game.content.preset_technologies.items()}
+
+
+def _unlocked_preset_technology_keys(game: "WebGame") -> set[str]:
+    names_by_key = _technology_names_by_preset_key(game)
+    rows = game.db.conn.execute("SELECT id, name FROM technologies").fetchall()
+    unlocked: set[str] = set()
+    for row in rows:
+        raw_id = str(row["id"] or "")
+        if raw_id.startswith("preset_"):
+            unlocked.add(raw_id.removeprefix("preset_"))
+        nm = str(row["name"] or "")
+        for key, name in names_by_key.items():
+            if nm == name:
+                unlocked.add(key)
+    return unlocked
+
+
+def _unlocked_preset_department_keys(game: "WebGame") -> set[str]:
+    rows = game.db.conn.execute("SELECT office_type FROM offices").fetchall()
+    office_names = {str(row["office_type"] or "") for row in rows}
+    return {
+        key
+        for key, preset in game.content.preset_departments.items()
+        if preset.name in office_names
+    }
+
+
+def _preset_tree_payload(game: "WebGame") -> dict:
+    tech_unlocked = _unlocked_preset_technology_keys(game)
+    dept_unlocked = _unlocked_preset_department_keys(game)
+
+    def tech_item(key: str, preset: Any) -> dict:
+        reqs = list(getattr(preset, "requires", []) or [])
+        return {
+            "key": key,
+            "name": preset.name,
+            "category": preset.category,
+            "effect_summary": preset.effect_summary,
+            "expected_months": preset.expected_months,
+            "bar_value": preset.bar_value,
+            "requires": reqs,
+            "unlocked": key in tech_unlocked,
+            "available": all(req in tech_unlocked for req in reqs),
+        }
+
+    def dept_item(key: str, preset: Any) -> dict:
+        reqs = list(getattr(preset, "requires", []) or [])
+        return {
+            "key": key,
+            "name": preset.name,
+            "category": preset.category,
+            "effect_summary": preset.effect_summary,
+            "authority_scope": preset.authority_scope,
+            "power": preset.power,
+            "expected_months": preset.expected_months,
+            "bar_value": preset.bar_value,
+            "requires": reqs,
+            "unlocked": key in dept_unlocked,
+            "available": all(req in dept_unlocked for req in reqs),
+        }
+
+    return {
+        "technologies": [tech_item(k, p) for k, p in game.content.preset_technologies.items()],
+        "departments": [dept_item(k, p) for k, p in game.content.preset_departments.items()],
+    }
+
+
+def _manual_preset_override(game: "WebGame", entity: "ManualIssueEntity | None") -> dict:
+    if entity is None:
+        return {}
+    kind = str(entity.kind or "").strip().lower()
+    key = str(entity.preset_key or "").strip()
+    if not key:
+        return {}
+    if kind == "technology":
+        preset = game.content.preset_technologies.get(key)
+        if preset is None:
+            raise HTTPException(status_code=400, detail=f"未知预设科技：{key}")
+        unlocked = _unlocked_preset_technology_keys(game)
+        if key in unlocked:
+            raise HTTPException(status_code=400, detail=f"科技「{preset.name}」已经研成。")
+        missing = [game.content.preset_technologies[r].name for r in preset.requires if r not in unlocked and r in game.content.preset_technologies]
+        if missing:
+            raise HTTPException(status_code=400, detail=f"前置科技未完成：{'、'.join(missing)}。")
+        return {
+            "title": preset.name,
+            "tags": [preset.theme],
+            "bar_value": preset.bar_value,
+            "stage_text": preset.stage_text,
+            "resolve_condition": preset.resolve_condition,
+            "fail_condition": preset.fail_condition,
+            "effect_on_resolve": dict(preset.effect_on_resolve),
+            "effect_on_fail": dict(preset.effect_on_fail),
+            "goal": preset.resolve_condition,
+        }
+    if kind == "department":
+        preset = game.content.preset_departments.get(key)
+        if preset is None:
+            raise HTTPException(status_code=400, detail=f"未知预设衙门：{key}")
+        unlocked = _unlocked_preset_department_keys(game)
+        if key in unlocked:
+            raise HTTPException(status_code=400, detail=f"衙门「{preset.name}」已经设立。")
+        missing = [game.content.preset_departments[r].name for r in preset.requires if r not in unlocked and r in game.content.preset_departments]
+        if missing:
+            raise HTTPException(status_code=400, detail=f"前置衙门未设立：{'、'.join(missing)}。")
+        return {
+            "title": preset.name,
+            "tags": [preset.theme],
+            "bar_value": preset.bar_value,
+            "stage_text": preset.stage_text,
+            "resolve_condition": preset.resolve_condition,
+            "fail_condition": preset.fail_condition,
+            "effect_on_resolve": dict(preset.effect_on_resolve),
+            "effect_on_fail": dict(preset.effect_on_fail),
+            "goal": preset.resolve_condition,
+        }
+    raise HTTPException(status_code=400, detail="预设 key 仅支持科技或政治衙门。")
+
+
 @app.post("/api/issues/manual")
 async def api_create_manual_issue(request: ManualIssueCreateRequest) -> Dict[str, Any]:
     """皇帝手动新建一条 decree 局势。按题材填的实体固定字段立项即预埋进 effect_on_resolve，
     走满 100 直接落成该实体（建筑/部门/科技），不依赖大模型现填。goal 立项后锁定不可改。"""
     game = get_game()
-    title = request.title.strip()
+    preset_override = _manual_preset_override(game, request.entity)
+    title = str(preset_override.get("title") or request.title).strip()
     if not title:
         raise HTTPException(status_code=400, detail="名称（标题）不能为空")
     max_n = int(load_runtime_game().get("max_decree_issues", 10))
@@ -2491,8 +2622,8 @@ async def api_create_manual_issue(request: ManualIssueCreateRequest) -> Dict[str
             status_code=409,
             detail=f"手动局势已达上限（{max_n} 条），请先撤销部分局势，或在主菜单游戏设置调高上限。当前：{cur} 条。",
         )
-    tags = [str(t).strip() for t in (request.tags or []) if str(t).strip()]
-    resolve_effect = _build_manual_resolve_effect(request.entity, title)
+    tags = [str(t).strip() for t in (preset_override.get("tags") or request.tags or []) if str(t).strip()]
+    resolve_effect = dict(preset_override.get("effect_on_resolve") or _build_manual_resolve_effect(request.entity, title))
     # 建筑预埋校验省份：玩家选的 region_id 必须是大明控制的省（不能建到外部势力地盘）。
     bld = (resolve_effect.get("buildings") or [{}])[0] if resolve_effect.get("buildings") else None
     if bld is not None:
@@ -2508,14 +2639,17 @@ async def api_create_manual_issue(request: ManualIssueCreateRequest) -> Dict[str
         title=title[:60],
         origin_kind="decree",
         origin_ref="manual",
-        bar_value=40,
-        stage_text=title[:60],
+        bar_value=int(preset_override.get("bar_value") or 40),
+        stage_text=str(preset_override.get("stage_text") or title)[:160],
         tags=tags,
         cancellable="decree",
         effect_on_resolve=resolve_effect,
+        effect_on_fail=dict(preset_override.get("effect_on_fail") or {}),
+        resolve_condition=str(preset_override.get("resolve_condition") or ""),
+        fail_condition=str(preset_override.get("fail_condition") or ""),
         is_manual=True,
         duration_turns=max(0, int(request.duration_turns or 0)),
-        goal=(request.goal or "").strip(),
+        goal=str(request.goal or preset_override.get("goal") or "").strip(),
     )
     print(f"[issue/api] 手动新建局势 id={issue_id} title={title!r} tags={tags} 预埋effect={resolve_effect}")
     return {"id": issue_id, "title": title, "duration_turns": max(0, int(request.duration_turns or 0))}
