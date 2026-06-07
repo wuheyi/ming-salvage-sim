@@ -809,7 +809,7 @@ export function EdictModal({
   const [dialogDirectiveId, setDialogDirectiveId] = React.useState<number | null>(null);
   const [issueEditorOpen, setIssueEditorOpen] = React.useState(false);
   const decreeIssueCount = React.useMemo(
-    () => (state.issues || []).filter((i) => i.origin_kind === "decree" && (i.kind === "situation" || i.kind === "initiative")).length,
+    () => (state.issues || []).filter((i) => (i.origin_kind === "decree" || (!i.origin_kind && i.is_manual)) && (i.kind === "situation" || i.kind === "initiative")).length,
     [state.issues],
   );
   const maxDecreeIssues = state.max_decree_issues ?? 10;

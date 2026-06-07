@@ -102,7 +102,7 @@ export function SituationDrawer({ open, issues, closedIssues, onClose, maxDecree
   onChanged?: () => void | Promise<void>;
 }) {
   const { active, longTerm, nearTerm } = groupIssues(issues);
-  const decreeIssueCount = active.filter((i) => i.origin_kind === "decree").length;
+  const decreeIssueCount = active.filter((i) => i.origin_kind === "decree" || (!i.origin_kind && i.is_manual)).length;
   const [editor, setEditor] = React.useState<{ mode: "create" } | { mode: "edit"; issue: Issue } | null>(null);
   return (
     <>

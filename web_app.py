@@ -982,6 +982,8 @@ class WebGame:
                 "ongoing_text": _format_issue_ongoing(str(row["ongoing_effects"] or "{}")),
                 "effect_on_resolve": dict(json.loads(str(row["effect_on_resolve"] or "{}"))),
                 "effect_on_fail": dict(json.loads(str(row["effect_on_fail"] or "{}"))),
+                "origin_kind": (row["origin_kind"] if "origin_kind" in row.keys() else "") or "",
+                "origin_ref": (row["origin_ref"] if "origin_ref" in row.keys() else "") or "",
                 "is_manual": bool(row["is_manual"]) if "is_manual" in row.keys() else False,
                 "duration_turns": int(row["duration_turns"] or 0) if "duration_turns" in row.keys() else 0,
                 "goal": (row["goal"] if "goal" in row.keys() else "") or "",

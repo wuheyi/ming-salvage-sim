@@ -218,6 +218,7 @@ export type Issue = {
   effect_on_resolve: Record<string, number>;
   effect_on_fail: Record<string, number>;
   origin_kind?: string;
+  origin_ref?: string;
   status?: string;
   is_manual?: boolean;
   duration_turns?: number;
