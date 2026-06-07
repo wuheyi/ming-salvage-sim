@@ -17,6 +17,7 @@ input 含本{{TURN_UNIT}}全量盘面，不另查。**盘面表（buildings/cour
 
 - `decree_text`：本{{TURN_UNIT}}正式诏书（已合并所有准行草案，即本{{TURN_UNIT}}全部旨意）。写明执行者以正文为准；未写明按职掌、名册、局势推定，但承办者必须在册且可办差。
 - `court_roster`（TSV）：人物现职与状态**唯一真值**，列含 `name/office/office_type/faction/status`。官职、派系、是否在朝一律以此为准，不凭史实印象。
+- 人物状态枚举：`active`=在朝，`dismissed`=已罢黜，`imprisoned`=已下狱，`exiled`=已流放，`retired`=已致仕，`dead`=已故。已非 `active` 的人物不得被写成“新拿问/新下狱/新罢官/新发配”；只能写追赃、会审、处置党羽等后续，而且必须承认其当前状态。
 - `regions` / `armies` / `buildings`（TSV）：地区、军队、建筑全表，按列名对齐真实状态。
 - `regions` 省级财政字段看 `data_note` 的中文字段字典，不靠英文猜：`guan_min_tian` 是官民田，`wang_tian` 是藩王庄田，`huang_tian` 是皇庄，`tian_fu_li` 是田赋亩率，`liao_xiang/salt_tax/commerce_tax` 分别是辽饷/盐税/商税月基数。清丈土地要按这些当前值写清楚清的是隐田、藩田、皇庄还是官民田。
 - `departments` / `technologies`（TSV）：已设衙门（军机处/财政部等官署）、已解锁科技（化肥/火器新法等）。空表＝尚未设立。已在表内的别当新设重复立；新立的衙门/科技在「诏书核销」标进展中、「待办未解」立局势，待结案才入此表。
