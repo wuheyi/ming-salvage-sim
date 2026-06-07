@@ -15,7 +15,7 @@ RUNTIME_GAME_PATH = user_data_path("runtime_game.json")
 
 # 游戏玩法设置默认值（全局，跨局共享）。
 GAME_SETTINGS_DEFAULTS = {
-    "hitl_min_decisions": 1,  # 每回合 simulator 至少产出的重大决策点数（0=不强制，宁缺毋滥）
+    "hitl_min_decisions": 1,  # 每回合 simulator 最多产出的重大决策点数（0=关闭 HITL 注入）
     "court_chat_debate_rounds": 3,  # 朝会聊天室未形成结论前最多驱动几轮 ReAct 交锋。
     "max_decree_issues": 10,  # 玩家手动 decree 局势同时进行上限。调高会增加推演 token 消耗。
 }
@@ -166,6 +166,13 @@ def load_runtime_game() -> Dict[str, object]:
         out["hitl_min_decisions"] = max(0, min(5, int(data.get("hitl_min_decisions", out["hitl_min_decisions"]))))
     except (TypeError, ValueError):
         pass
+    # 探针/测试可用环境变量 HITL_MIN_DECISIONS 覆盖（不污染 runtime_game.json）；
+    # 设 0 即关掉决策点暂停，让结算单步直通。env 优先于 JSON 文件。
+    if os.environ.get("HITL_MIN_DECISIONS"):
+        try:
+            out["hitl_min_decisions"] = max(0, min(5, int(os.environ["HITL_MIN_DECISIONS"])))
+        except (TypeError, ValueError):
+            pass
     try:
         out["court_chat_debate_rounds"] = max(1, min(8, int(data.get("court_chat_debate_rounds", out["court_chat_debate_rounds"]))))
     except (TypeError, ValueError):

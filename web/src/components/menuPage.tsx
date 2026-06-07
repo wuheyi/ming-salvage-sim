@@ -265,20 +265,20 @@ export function GameSettingsModal({
         <h2>游戏设置</h2>
         {err && <div className="menu-error">{err}</div>}
         <label>
-          每回合最少重大抉择数{" "}
+          每回合最多重大抉择数{" "}
           <small className="menu-hint">
-            （月末推演至少弹几个需皇帝亲裁的决策点。0=不强制，盘面有大事才弹；改动下一回合生效。）
+            （月末推演最多弹几个需皇帝亲裁的决策点。0=关闭重大抉择；改动下一回合生效。）
           </small>
           <select
             value={minDecisions}
             onChange={(e) => setMinDecisions(Number(e.target.value))}
           >
-            <option value={0}>0 · 不强制</option>
-            <option value={1}>1 · 每回合至少 1 个</option>
-            <option value={2}>2 · 每回合至少 2 个</option>
-            <option value={3}>3 · 每回合至少 3 个</option>
-            <option value={4}>4 · 每回合至少 4 个</option>
-            <option value={5}>5 · 每回合至少 5 个</option>
+            <option value={0}>0 · 关闭重大抉择</option>
+            <option value={1}>1 · 每回合最多 1 个</option>
+            <option value={2}>2 · 每回合最多 2 个</option>
+            <option value={3}>3 · 每回合最多 3 个</option>
+            <option value={4}>4 · 每回合最多 4 个</option>
+            <option value={5}>5 · 每回合最多 5 个</option>
           </select>
         </label>
         <label>

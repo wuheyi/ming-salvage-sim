@@ -19,7 +19,7 @@ from ming_sim.token_stats import tlog
 
 
 def _load_hitl_min_decisions() -> int:
-    """全局玩法设置：本回合 simulator 至少应产出的决策点数（0=不强制）。失败回落 1。"""
+    """全局玩法设置：本回合 simulator 最多应产出的决策点数（0=关闭 HITL 注入）。失败回落 1。"""
     try:
         from ming_sim.llm_config import load_runtime_game
         return int(load_runtime_game().get("hitl_min_decisions", 1))
@@ -284,7 +284,7 @@ def build_simulator_payload(
         dict(r) for r in db.conn.execute(
             "SELECT name,station,theater,commander,controller,troop_type,manpower,"
             "maintenance_per_turn,supply,morale,training,equipment,arrears,mobility,"
-            "loyalty,status,owner_power FROM armies ORDER BY id"
+            "loyalty,status,owner_power FROM armies WHERE active = 1 ORDER BY id"
         ).fetchall()
     ]
     court_roster = _auto_table([
@@ -304,7 +304,6 @@ def build_simulator_payload(
         "powers_brief": db.power_report(exclude_self=True),
         "active_issues": issues_payload,
         "candidate_events": candidate_events,
-        "previous_narrative_tail": previous_narrative[-1500:] if previous_narrative else "",
         "historical_anchor": historical_anchor_for_month(state.year, state.period),
         "victory_status": victory_status(db, state),
         "regions": _auto_table(region_rows),
@@ -318,7 +317,7 @@ def build_simulator_payload(
         "debuts_this_turn": debuts_this_turn or [],
         "relevant_memories": relevant_memories or [],
         "secret_orders": secret_orders or [],
-        # HITL：本回合 simulator 至少应产出的重大决策点数（全局玩法设置，0=不强制）。
+        # HITL：本回合 simulator 最多应产出的重大决策点数（全局玩法设置，0=关闭 HITL 注入）。
         "hitl_min_decisions": _load_hitl_min_decisions(),
         "data_note": "盘面表（buildings/departments/technologies/court_roster/armies/regions）在本输入的开头以 TSV 文本块给出（首行列名、tab 分隔、每行一条记录），不在本 JSON 内；本 JSON 只含其余字段（含 powers_brief/factions_brief/classes_brief 叙述串、active_issues 等）。departments=已设衙门，technologies=已解锁科技（均为玩家诏书所立）；空表只有表头。secret_orders 为皇帝密令列表，独立于 relevant_memories；progress/sim_note 是精简时间线，每条仅含 id/time/narrative。",
     }
@@ -492,7 +491,7 @@ def _extractor_context_payload(
         dict(r) for r in db.conn.execute(
             "SELECT id,name,station,theater,commander,controller,troop_type,manpower,"
             "maintenance_per_turn,supply,morale,training,equipment,arrears,mobility,"
-            "loyalty,status FROM armies ORDER BY id"
+            "loyalty,status FROM armies WHERE active = 1 ORDER BY id"
         ).fetchall()
     ]
     active_ministers = [
@@ -526,7 +525,7 @@ def _extractor_context_payload(
         "active_ministers": _auto_table(active_ministers),
         "offstage_ministers": _auto_table(offstage_ministers),
         "region_ids": [r["id"] for r in db.conn.execute("SELECT id FROM regions").fetchall()],
-        "army_ids": [r["id"] for r in db.conn.execute("SELECT id FROM armies").fetchall()],
+        "army_ids": [r["id"] for r in db.conn.execute("SELECT id FROM armies WHERE active = 1").fetchall()],
         "class_names": [r["name"] for r in db.conn.execute("SELECT DISTINCT name FROM classes ORDER BY name").fetchall()],
         "power_ids": [str(r["id"]) for r in db.conn.execute("SELECT id FROM powers").fetchall()],
         "fiscal_config": db.get_fiscal_config(),

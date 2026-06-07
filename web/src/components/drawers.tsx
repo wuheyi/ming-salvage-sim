@@ -1,5 +1,6 @@
 import React from "react";
-import { Check, Crown, Landmark, MapPinned, MessageSquareText, ScrollText, Star, Swords, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Check, Crown, Info, Landmark, MapPinned, MessageSquareText, ScrollText, Star, Swords, X } from "lucide-react";
 import { MinisterPortrait, PortraitUploadButton, RightDrawer, cacheBust, courtSlots, loadCourtPos, saveCourtPos, snapToSlot } from "./hud";
 import { formatMoney, formatSignedMoney, regionMonthlyTax } from "../format";
 import type { Army, Building, CourtChatMessage, GameState, Issue, MapNode, Minister, Region, Technology } from "../types";
@@ -695,6 +696,7 @@ export function AppointmentDrawer({
   onClose: () => void;
 }) {
   const [q, setQ] = React.useState("");
+  const [detailMinister, setDetailMinister] = React.useState<Minister | null>(null);
   const BASE_OFFICES = ["内阁", "吏部", "户部", "礼部", "兵部", "刑部", "工部"];
   // 新设衙门（军机处/财政部等）：从在职大臣的 office_type 动态收集，排在基础六部之后、「其他」之前。
   const extraOffices = [...new Set(
@@ -735,6 +737,20 @@ export function AppointmentDrawer({
                   className="right-drawer-row right-drawer-row-minister"
                   onClick={() => onOpenChat(m)}
                 >
+                  <span className="right-drawer-row-action">
+                    <button
+                      type="button"
+                      className="minister-detail-open"
+                      aria-label={`查看${m.name}详情`}
+                      title="查看详情"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setDetailMinister(m);
+                      }}
+                    >
+                      <Info size={14} />
+                    </button>
+                  </span>
                   <div className="right-drawer-minister-row">
                     <span className="right-drawer-row-name">{m.name}</span>
                     <span className="right-drawer-minister-office">{m.office || m.office_type}</span>
@@ -748,8 +764,119 @@ export function AppointmentDrawer({
           <div className="empty-note">{q ? "无匹配结果。" : "暂无在职官员。"}</div>
         )}
       </div>
+      {detailMinister ? <MinisterDetailDialog minister={detailMinister} onClose={() => setDetailMinister(null)} /> : null}
     </RightDrawer>
   );
+}
+
+export function MinisterDetailDialog({
+  minister,
+  onClose,
+}: {
+  minister: Minister;
+  onClose: () => void;
+}) {
+  const lifeText = minister.birth_year
+    ? `${minister.birth_year}年生${minister.historical_death_year ? ` · ${minister.historical_death_year}年${minister.historical_death_month ? `${minister.historical_death_month}月` : ""}卒` : ""}`
+    : (minister.historical_death_year ? `${minister.historical_death_year}年${minister.historical_death_month ? `${minister.historical_death_month}月` : ""}卒` : "未载");
+  const debutText = minister.debut_year
+    ? `${minister.debut_year}年${minister.debut_month ? `${minister.debut_month}月` : ""}`
+    : "开局在场或未指定";
+  const isCustom = minister.portrait_id?.startsWith("custom:");
+  const portraitPrimary = isCustom
+    ? `/portraits/custom/${encodeURIComponent(minister.name)}?t=${cacheBust(minister.portrait_id!)}`
+    : `/portraits/minister_${minister.id ?? minister.name}.png`;
+  const portraitFallback = !isCustom && minister.portrait_id ? `/portraits/${minister.portrait_id}.png` : undefined;
+  const formatSkill = (skill: Minister["skills"][number]) => {
+    const label = skill.name || (skill.kind === "tool" ? "可用工具" : "可用能力");
+    const descriptionText = skill.description ? `：${skill.description}` : "";
+    return `${label}${descriptionText}`;
+  };
+  const formatFieldValue = (key: string, value: unknown): string => {
+    if (key === "skills" && Array.isArray(value)) {
+      return value.length ? value.map((item) => formatSkill(item as Minister["skills"][number])).join("\n") : "无";
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => {
+        if (item && typeof item === "object") return JSON.stringify(item);
+        return String(item);
+      }).join("\n");
+    }
+    if (value && typeof value === "object") return JSON.stringify(value);
+    return String(value);
+  };
+  const skillText = minister.skills?.length
+    ? minister.skills.filter((skill) => skill.kind === "agno_skill").map(formatSkill).join("\n") || "无"
+    : "无";
+  const toolText = minister.skills?.length
+    ? minister.skills.filter((skill) => skill.kind === "tool").map(formatSkill).join("\n") || "无"
+    : "无";
+  const showDebugFields = new URLSearchParams(window.location.search).get("debug") === "1";
+  const allFields = showDebugFields
+    ? Object.entries(minister)
+      .filter(([, value]) => value !== undefined && value !== null && value !== "")
+      .map(([key, value]) => [key, formatFieldValue(key, value)])
+    : [];
+  const dialog = (
+    <div className="minister-detail-layer" role="dialog" aria-modal="true" aria-label={`人物详情：${minister.name}`}>
+      <div className="minister-detail-scrim" onClick={onClose} />
+      <section className="minister-detail-dialog">
+        <header className="minister-detail-header">
+          <div>
+            <span className={`minister-status status-${minister.status}`}>{minister.status_label || minister.status}</span>
+            <h2>{minister.name}</h2>
+            <p>{minister.summary}</p>
+          </div>
+          <button className="icon-button" aria-label="关闭人物详情" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </header>
+        <div className="minister-detail-body">
+          <div className="minister-detail-layout">
+            <div className="minister-detail-portrait">
+              <MinisterPortrait primary={portraitPrimary} fallback={portraitFallback} name={minister.name} />
+            </div>
+            <table className="intel-table minister-detail-table">
+              <tbody>
+                <tr><th>姓名</th><td>{minister.name}</td><th>官职</th><td>{minister.office || "无"}</td></tr>
+                <tr><th>官署</th><td>{minister.office_type || "未载"}</td><th>派系</th><td>{minister.faction || "未载"}</td></tr>
+                <tr><th>行事</th><td>{minister.style || "未载"}</td><th>势力</th><td>{minister.power_id || "ming"}</td></tr>
+                <tr><th>状态</th><td>{minister.status_label || minister.status || "未载"}</td><th>原因</th><td>{minister.status_reason || "无"}</td></tr>
+                <tr><th>所在</th><td>{minister.location || "未载"}</td><th>头像</th><td>{minister.portrait_id || "默认"}</td></tr>
+                <tr><th>生卒</th><td>{lifeText}</td><th>登场</th><td>{debutText}</td></tr>
+                <tr><th>忠诚</th><td>{minister.loyalty ?? "未载"}</td><th>才干</th><td>{minister.ability ?? "未载"}</td></tr>
+                <tr><th>操守</th><td>{minister.integrity ?? "未载"}</td><th>胆略</th><td>{minister.courage ?? "未载"}</td></tr>
+                <tr><th className="intel-section-th" colSpan={4}>人物简介</th></tr>
+                <tr><td colSpan={4}>{minister.description || minister.summary || "未载。"}</td></tr>
+                <tr><th>别名</th><td colSpan={3}>{minister.aliases?.length ? minister.aliases.join("、") : "无"}</td></tr>
+                <tr><th>个人技艺</th><td colSpan={3}>{minister.personal_skills?.length ? minister.personal_skills.join("、") : "无"}</td></tr>
+                <tr><th className="intel-section-th" colSpan={4}>可用能力</th></tr>
+                <tr><td colSpan={4}><pre className="minister-detail-pre">{skillText}</pre></td></tr>
+                <tr><th className="intel-section-th" colSpan={4}>可用工具</th></tr>
+                <tr><td colSpan={4}><pre className="minister-detail-pre">{toolText}</pre></td></tr>
+              </tbody>
+            </table>
+          </div>
+          {showDebugFields ? (
+            <details className="minister-detail-raw">
+              <summary>全部字段</summary>
+              <table className="intel-table minister-detail-table">
+                <tbody>
+                {allFields.map(([key, value]) => (
+                  <tr key={key}>
+                    <th>{key}</th>
+                    <td colSpan={3}>{value}</td>
+                  </tr>
+                ))}
+                </tbody>
+              </table>
+            </details>
+          ) : null}
+        </div>
+      </section>
+    </div>
+  );
+  return createPortal(dialog, document.body);
 }
 
 export function CourtDrawer({

@@ -241,14 +241,6 @@ def build_minister_tools(character: Character, context: CourtContext,
             t = 6
         return context.db.treasury_ledger(acc, t)
 
-    def audit_tax_arrears(target: str = "各省积欠") -> str:
-        """清查积欠、估算可追收入库。"""
-        return skill_template("audit_tax_arrears", target=target)
-
-    def allocate_payroll(target: str = f"本{TURN_UNIT}急需钱粮处") -> str:
-        """核算军饷调度。"""
-        return skill_template("allocate_payroll", target=target)
-
     def adjust_tax(tax: str, ratio: float, region: str = "", reason: str = "") -> str:
         """户部奏请调整税额，立为一道可追踪调税事项（issue）。
         非即时改账：事项进度推到满才落库，推演期间会被士绅抗税/有司阳奉顶回——加征越狠越难磨平。
@@ -523,8 +515,6 @@ def build_minister_tools(character: Character, context: CourtContext,
     _COURT_TOOL_FUNCS = {
         "propose_appointment": propose_appointment,
         "check_treasury": check_treasury,
-        "allocate_payroll": allocate_payroll,
-        "audit_tax_arrears": audit_tax_arrears,
         "adjust_tax": adjust_tax,
     }
     grant = context.db.get_office_court_grant(character.office_type)

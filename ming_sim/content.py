@@ -394,53 +394,27 @@ def dict_of_strings(value: object, path: str) -> Dict[str, str]:
     return output
 
 
-def load_skill_content() -> Tuple[
-    Dict[str, List[str]],
-    Dict[str, Dict[str, object]],
-    Dict[str, List[str]],
-    Dict[str, List[str]],
-    List[str],
-    Dict[str, str],
-    Dict[str, List[str]],
-    Dict[str, str],
-    Set[str],
-    Dict[str, Dict[str, object]],
-]:
+def load_skill_content() -> Tuple[Dict[str, Dict[str, object]], int, Dict[str, Dict[str, object]]]:
     data = require_dict(load_json_asset("skills.json"), "skills.json")
-    office_skills_data = dict_of_string_lists(data.get("office_skills"), "skills.json.office_skills")
-    skill_catalog = {
-        str(key): require_dict(value, f"skills.json.skill_catalog.{key}")
-        for key, value in require_dict(data.get("skill_catalog"), "skills.json.skill_catalog").items()
-    }
-    # office_default_skills 的 value 是授权 json：{display_skills, court_tools, agno_skills, chips}。
-    # display_skills 抽进 office_default_skills（玩家可见技能卡，向后兼容旧消费者按 list 读）；
+    # office_default_skills 的 value 是运行时授权 json：{court_tools, agno_skills, chips}。
     # court_tools/agno_skills/chips 抽进 office_court_grants（court tool 挂载/agno skill 注入/前端 chip 授权）。
     # 加新 office = 只在 skills.json 这一张表加一项，三处代码自动读到，不必改 Python。
     office_grant_version = int(data.get("__office_grant_version") or 1)
-    office_default_skills: Dict[str, List[str]] = {}
     office_court_grants: Dict[str, Dict[str, object]] = {}
     for office_type, raw in require_dict(data.get("office_default_skills"), "skills.json.office_default_skills").items():
         grant = require_dict(raw, f"skills.json.office_default_skills.{office_type}")
         ot = str(office_type)
-        office_default_skills[ot] = string_list(grant.get("display_skills"), f"skills.json.office_default_skills.{ot}.display_skills")
         office_court_grants[ot] = {
             "court_tools": string_list(grant.get("court_tools"), f"skills.json.office_default_skills.{ot}.court_tools"),
             "agno_skills": string_list(grant.get("agno_skills"), f"skills.json.office_default_skills.{ot}.agno_skills"),
             "chips": list(grant.get("chips") or []),
         }
-    personal_skill_ids = dict_of_string_lists(data.get("personal_skill_ids"), "skills.json.personal_skill_ids")
-    common_skills = string_list(data.get("common_skills"), "skills.json.common_skills")
-    skill_descriptions = dict_of_strings(data.get("skill_descriptions"), "skills.json.skill_descriptions")
-    grant_keywords = dict_of_string_lists(data.get("grant_keywords"), "skills.json.grant_keywords")
-    directive_keywords = dict_of_strings(data.get("directive_keywords"), "skills.json.directive_keywords")
-    directive_skill_ids = set(string_list(data.get("directive_skill_ids"), "skills.json.directive_skill_ids"))
 
     office_definitions: Dict[str, Dict[str, object]] = {}
     for office_type, raw in require_dict(data.get("office_definitions"), "skills.json.office_definitions").items():
         item = require_dict(raw, f"skills.json.office_definitions.{office_type}")
-        skills_ref = str(item.get("skills_ref") or office_type)
         office_definitions[str(office_type)] = {
-            "skills": office_skills_data.get(skills_ref, []),
+            "skills": [],
             "tools": string_list(item.get("tools"), f"skills.json.office_definitions.{office_type}.tools"),
             "authority_scope": str_field(item, "authority_scope", f"skills.json.office_definitions.{office_type}"),
             "power": int_field(item, "power", f"skills.json.office_definitions.{office_type}"),
@@ -448,34 +422,9 @@ def load_skill_content() -> Tuple[
             "corruption_risk": int_field(item, "corruption_risk", f"skills.json.office_definitions.{office_type}"),
         }
 
-    for skill_id in common_skills:
-        if skill_id not in skill_catalog:
-            raise SystemExit(f"common_skills 引用了未定义 skill：{skill_id}")
-    for mapping_name, mapping in {
-        "office_default_skills": office_default_skills,
-        "personal_skill_ids": personal_skill_ids,
-        "grant_keywords": grant_keywords,
-    }.items():
-        for key, skill_ids in mapping.items():
-            for skill_id in skill_ids:
-                if skill_id not in skill_catalog:
-                    raise SystemExit(f"{mapping_name}.{key} 引用了未定义 skill：{skill_id}")
-    for keyword, skill_id in directive_keywords.items():
-        if skill_id not in skill_catalog:
-            raise SystemExit(f"directive_keywords.{keyword} 引用了未定义 skill：{skill_id}")
-
     return (
-        office_skills_data,
-        skill_catalog,
-        office_default_skills,
         office_court_grants,
         office_grant_version,
-        personal_skill_ids,
-        common_skills,
-        skill_descriptions,
-        grant_keywords,
-        directive_keywords,
-        directive_skill_ids,
         office_definitions,
     )
 
@@ -549,20 +498,11 @@ class GameContent:
     powers: Dict[str, Power] = field(default_factory=dict)
     classes: Dict[str, SocialClass] = field(default_factory=dict)
 
-    # skill 体系（load_skill_content 十元组）
-    office_skills: Dict[str, List[str]] = field(default_factory=dict)
-    skill_catalog: Dict[str, Dict[str, object]] = field(default_factory=dict)
-    office_default_skills: Dict[str, List[str]] = field(default_factory=dict)
+    # runtime office grants
     # office_type → {court_tools:[...], agno_skills:[...], chips:[{...}]}：court 授权唯一来源。
     office_court_grants: Dict[str, Dict[str, object]] = field(default_factory=dict)
     # 授权表大版本号；老档 < 此值才重 seed 授权（玩家运行时改过的授权在 >= 时神圣不动）。
     office_grant_version: int = 1
-    personal_skill_ids: Dict[str, List[str]] = field(default_factory=dict)
-    common_skills: List[str] = field(default_factory=list)
-    skill_descriptions: Dict[str, str] = field(default_factory=dict)
-    grant_keywords: Dict[str, List[str]] = field(default_factory=dict)
-    directive_keywords: Dict[str, str] = field(default_factory=dict)
-    directive_skill_ids: Set[str] = field(default_factory=set)
     office_definitions: Dict[str, Dict[str, object]] = field(default_factory=dict)
     skill_tool_templates: Dict[str, str] = field(default_factory=dict)
 
@@ -596,17 +536,8 @@ class GameContent:
         powers = load_powers()
         classes = load_class_content()
         (
-            office_skills_data,
-            skill_catalog,
-            office_default_skills,
             office_court_grants,
             office_grant_version,
-            personal_skill_ids,
-            common_skills,
-            skill_descriptions,
-            grant_keywords,
-            directive_keywords,
-            directive_skill_ids,
             office_definitions,
         ) = load_skill_content()
         return cls(
@@ -624,17 +555,8 @@ class GameContent:
             faction_metrics=tuple(factions.keys()),
             powers=powers,
             classes=classes,
-            office_skills=office_skills_data,
-            skill_catalog=skill_catalog,
-            office_default_skills=office_default_skills,
             office_court_grants=office_court_grants,
             office_grant_version=office_grant_version,
-            personal_skill_ids=personal_skill_ids,
-            common_skills=common_skills,
-            skill_descriptions=skill_descriptions,
-            grant_keywords=grant_keywords,
-            directive_keywords=directive_keywords,
-            directive_skill_ids=directive_skill_ids,
             office_definitions=office_definitions,
             fiscal_items=load_fiscal_config(),
             skill_tool_templates=dict_of_strings(load_json_asset("skill_tools.json"), "skill_tools.json"),

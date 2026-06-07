@@ -16,7 +16,6 @@ from ming_sim.content import GameContent
 from ming_sim.db import GameDB
 from ming_sim.exceptions import LLMContractError
 from ming_sim.models import Army, Character, Event, GameState, Region
-from ming_sim.skills import available_skill_names, office_skills
 
 _content: Optional[GameContent] = None
 
@@ -155,14 +154,13 @@ def character_context(character: Character) -> str:
         f"{character.name}，{character.office}，职位类型：{character.office_type}，派系：{character.faction}，"
         f"别名：{', '.join(character.aliases) or '无'}，"
         f"人物标签：{', '.join(character.personal_skills)}，"
-        f"职位技能：{', '.join(office_skills(character.office_type))}，"
         f"忠诚{character.loyalty}，能力{character.ability}，清廉{character.integrity}，"
         f"胆略{character.courage}，风格：{character.style}"
     )
 
 
 def character_context_with_db(character: Character, db: GameDB) -> str:
-    return character_context(character) + f"，当前可用技能：{available_skill_names(character, db)}"
+    return character_context(character)
 
 
 def event_context(event: Event) -> str:

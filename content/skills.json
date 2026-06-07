@@ -1,470 +1,105 @@
 {
   "__office_grant_version": 1,
-  "common_skills": [
-    "view_state",
-    "list_memorials",
-    "inspect_memorial",
-    "list_regions",
-    "inspect_region",
-    "estimate_resistance",
-    "draft_directive",
-    "draft_edict"
-  ],
-  "skill_catalog": {
-    "view_state": {
-      "name": "查看国势",
-      "kind": "通用",
-      "tools": true
-    },
-    "list_memorials": {
-      "name": "查看奏报",
-      "kind": "通用",
-      "tools": true
-    },
-    "inspect_memorial": {
-      "name": "查看奏报细节",
-      "kind": "通用",
-      "tools": true
-    },
-    "list_regions": {
-      "name": "查看地区警讯",
-      "kind": "通用",
-      "tools": true
-    },
-    "inspect_region": {
-      "name": "查看地区详情",
-      "kind": "通用",
-      "tools": true
-    },
-    "estimate_resistance": {
-      "name": "估算阻力",
-      "kind": "通用",
-      "tools": true
-    },
-    "draft_directive": {
-      "name": "草拟指令",
-      "kind": "通用",
-      "tools": true
-    },
-    "draft_edict": {
-      "name": "草拟圣旨",
-      "kind": "通用",
-      "tools": true
-    },
-    "convene_court_debate": {
-      "name": "廷议",
-      "kind": "官职",
-      "office": "内阁",
-      "tools": true
-    },
-    "coordinate_ministries": {
-      "name": "协调六部",
-      "kind": "官职",
-      "office": "内阁",
-      "tools": false
-    },
-    "check_treasury": {
-      "name": "查国库",
-      "kind": "官职",
-      "office": "户部",
-      "tools": true
-    },
-    "audit_accounts": {
-      "name": "查账",
-      "kind": "官职",
-      "office": "户部",
-      "tools": true
-    },
-    "allocate_payroll": {
-      "name": "调度军饷",
-      "kind": "官职",
-      "office": "户部",
-      "tools": true
-    },
-    "check_military": {
-      "name": "查军情",
-      "kind": "官职",
-      "office": "兵部/边镇",
-      "tools": true
-    },
-    "mobilize_troops": {
-      "name": "调度军队",
-      "kind": "官职",
-      "office": "兵部/边镇",
-      "tools": true
-    },
-    "review_generals": {
-      "name": "考核将领",
-      "kind": "官职",
-      "office": "兵部",
-      "tools": false
-    },
-    "estimate_project": {
-      "name": "工程估算",
-      "kind": "官职",
-      "office": "工部",
-      "tools": true
-    },
-    "run_technical_trial": {
-      "name": "技术试办",
-      "kind": "官职",
-      "office": "工部",
-      "tools": true
-    },
-    "inner_court_inquiry": {
-      "name": "内廷查访",
-      "kind": "官职",
-      "office": "司礼监",
-      "tools": true
-    },
-    "transmit_edict": {
-      "name": "传旨",
-      "kind": "官职",
-      "office": "司礼监",
-      "tools": false
-    },
-    "secret_investigation": {
-      "name": "密查",
-      "kind": "官职",
-      "office": "锦衣卫/东厂",
-      "tools": true
-    },
-    "intimidate_obstruction": {
-      "name": "威慑阻挠",
-      "kind": "官职",
-      "office": "东厂",
-      "tools": true
-    },
-    "audit_tax_arrears": {
-      "name": "清查积欠",
-      "kind": "个人",
-      "character": "毕自严",
-      "tools": true
-    },
-    "front_line_plan": {
-      "name": "前线部署",
-      "kind": "个人",
-      "character": "袁崇焕",
-      "tools": true
-    },
-    "strategic_review": {
-      "name": "战略复核",
-      "kind": "个人",
-      "character": "孙承宗",
-      "tools": true
-    },
-    "factory_network_probe": {
-      "name": "厂卫旧线",
-      "kind": "个人",
-      "character": "魏忠贤",
-      "tools": true
-    },
-    "cultivate_consort": {
-      "name": "调教妃嫔",
-      "kind": "官职",
-      "office": "后宫",
-      "tools": true
-    }
-  },
-  "skill_descriptions": {
-    "view_state": "看核心国势、钱粮与派系态势。",
-    "list_memorials": "列出本月需要皇帝过目的奏报。",
-    "inspect_memorial": "追问某条奏报的细节、可信度和牵涉利益。",
-    "list_regions": "查看两京十三省最危险地区、账面月税和核心警讯。",
-    "inspect_region": "查看某一地区的人口、民心、动乱、天灾、人祸、田亩和税收。",
-    "estimate_resistance": "估算一道旨意会被谁拖、谁反弹。",
-    "draft_directive": "把皇帝口谕登记为本月诏书草案，不立刻结算。",
-    "draft_edict": "按奏报和政策方向拟一段可批准的圣旨文本。",
-    "convene_court_debate": "召廷议定名分、分责任，慢但较稳。",
-    "coordinate_ministries": "以内阁名义协调部院，适合跨衙门事项。",
-    "check_treasury": "查国库、内库、本月收支和近期流水。",
-    "audit_accounts": "查账册、亏空、积欠和经手人。",
-    "allocate_payroll": "登记拨银、发饷、赈济、钱粮调度指令。",
-    "check_military": "查军情、军心、城防和边镇奏报可信度。",
-    "mobilize_troops": "登记调兵、整军、巡边、守城或出击指令。",
-    "review_generals": "考核将领、军纪与虚报冒饷。",
-    "estimate_project": "估算工程、工匠、材料、工期和验收。",
-    "run_technical_trial": "登记火器、农政、工艺等试办指令。",
-    "inner_court_inquiry": "以内廷渠道查宫中、人情、内库和旧线。",
-    "transmit_edict": "传旨、催办、观察旨意是否被中途扭曲。",
-    "secret_investigation": "密查账册、人物或地方隐情，快但反噬重。",
-    "intimidate_obstruction": "威慑拖旨官员，短期有效但会抬高党争。",
-    "audit_tax_arrears": "毕自严专长：清查积欠、实收实支、追缴亏空。",
-    "front_line_plan": "袁崇焕专长：宁锦守势、军心、前线部署。",
-    "strategic_review": "孙承宗专长：辽东大局复核、名分和将领评估。",
-    "factory_network_probe": "魏忠贤专长：厂卫旧线、把柄、威慑与截留风险。",
-    "cultivate_consort": "皇帝调教妃嫔：为其新增技能或改变性格，效果永久生效。"
-  },
-  "office_skills": {
-    "内阁": [
-      "廷议",
-      "票拟",
-      "拟旨",
-      "协调六部"
-    ],
-    "户部": [
-      "查国库",
-      "查账",
-      "核算钱粮",
-      "调度军饷"
-    ],
-    "兵部": [
-      "查军情",
-      "调兵建议",
-      "考核将领",
-      "边防复核"
-    ],
-    "工部": [
-      "工程估算",
-      "工匠调度",
-      "技术试办",
-      "器械验收"
-    ],
-    "司礼监": [
-      "传旨",
-      "内廷查访",
-      "内库建议",
-      "宫中密奏"
-    ],
-    "锦衣卫": [
-      "密查",
-      "缉访",
-      "审讯",
-      "监视官员"
-    ],
-    "东厂": [
-      "密查",
-      "缉访",
-      "内廷旧线",
-      "威慑外朝"
-    ],
-    "边镇": [
-      "查本镇军情",
-      "练兵建议",
-      "守城部署",
-      "前线回奏"
-    ],
-    "后宫": [
-      "调教",
-      "倾诉",
-      "枕边风",
-      "代抄经文"
-    ],
-    "外臣": [
-      "外邦政情",
-      "部族调度",
-      "外交权衡",
-      "敌情回奏"
-    ]
-  },
   "office_default_skills": {
     "内阁": {
-      "display_skills": ["convene_court_debate", "coordinate_ministries"],
-      "court_tools": ["check_treasury", "allocate_payroll", "audit_tax_arrears"],
+      "court_tools": [
+        "check_treasury"
+      ],
       "agno_skills": [],
       "chips": []
     },
     "吏部": {
-      "display_skills": [],
-      "court_tools": ["propose_appointment"],
+      "court_tools": [
+        "propose_appointment"
+      ],
       "agno_skills": [],
       "chips": []
     },
     "户部": {
-      "display_skills": ["check_treasury", "audit_accounts", "allocate_payroll"],
-      "court_tools": ["check_treasury", "allocate_payroll", "audit_tax_arrears", "adjust_tax"],
-      "agno_skills": ["tax-adjust"],
+      "court_tools": [
+        "check_treasury",
+        "adjust_tax"
+      ],
+      "agno_skills": [
+        "tax-adjust"
+      ],
       "chips": [
-        {"label": "调税", "text": "调税如下：把 [税种：田赋/辽饷/盐税/商税] [加征/减征/罢废，幅度几成] [全国 或 某省]。", "prefix": true}
+        {
+          "label": "调税",
+          "text": "调税如下：把 [税种：田赋/辽饷/盐税/商税] [加征/减征/罢废，幅度几成] [全国 或 某省]。",
+          "prefix": true
+        }
       ]
     },
     "兵部": {
-      "display_skills": ["check_military", "mobilize_troops", "review_generals"],
       "court_tools": [],
       "agno_skills": [],
       "chips": []
     },
     "工部": {
-      "display_skills": ["estimate_project", "run_technical_trial"],
       "court_tools": [],
       "agno_skills": [],
       "chips": []
     },
     "礼部": {
-      "display_skills": [],
-      "court_tools": ["present_consort_candidates"],
-      "agno_skills": ["consort-selection"],
+      "court_tools": [
+        "present_consort_candidates"
+      ],
+      "agno_skills": [
+        "consort-selection"
+      ],
       "chips": [
-        {"label": "选妃", "text": "选妃如下：", "prefix": true}
+        {
+          "label": "选妃",
+          "text": "选妃如下：",
+          "prefix": true
+        }
       ]
     },
     "司礼监": {
-      "display_skills": ["inner_court_inquiry", "transmit_edict"],
-      "court_tools": ["check_treasury", "allocate_payroll", "audit_tax_arrears", "present_consort_candidates"],
-      "agno_skills": ["consort-selection"],
+      "court_tools": [
+        "check_treasury",
+        "present_consort_candidates"
+      ],
+      "agno_skills": [
+        "consort-selection"
+      ],
       "chips": [
-        {"label": "选妃", "text": "选妃如下：", "prefix": true}
+        {
+          "label": "选妃",
+          "text": "选妃如下：",
+          "prefix": true
+        }
       ]
     },
     "锦衣卫": {
-      "display_skills": ["secret_investigation"],
       "court_tools": [],
       "agno_skills": [],
       "chips": []
     },
     "东厂": {
-      "display_skills": ["secret_investigation", "intimidate_obstruction"],
       "court_tools": [],
       "agno_skills": [],
       "chips": []
     },
     "边镇": {
-      "display_skills": ["check_military", "mobilize_troops"],
       "court_tools": [],
       "agno_skills": [],
       "chips": []
     },
     "后宫": {
-      "display_skills": ["cultivate_consort"],
       "court_tools": [],
       "agno_skills": [],
       "chips": []
     },
     "外臣": {
-      "display_skills": [],
       "court_tools": [],
       "agno_skills": [],
       "chips": []
     }
   },
-  "personal_skill_ids": {
-    "毕自严": [
-      "audit_tax_arrears"
-    ],
-    "袁崇焕": [
-      "front_line_plan"
-    ],
-    "孙承宗": [
-      "strategic_review"
-    ],
-    "魏忠贤": [
-      "factory_network_probe"
-    ]
-  },
-  "grant_keywords": {
-    "廷议": [
-      "convene_court_debate",
-      "coordinate_ministries"
-    ],
-    "票拟": [
-      "convene_court_debate",
-      "coordinate_ministries"
-    ],
-    "内阁": [
-      "convene_court_debate",
-      "coordinate_ministries"
-    ],
-    "钱粮": [
-      "check_treasury",
-      "audit_accounts",
-      "allocate_payroll"
-    ],
-    "财政": [
-      "check_treasury",
-      "audit_accounts",
-      "allocate_payroll"
-    ],
-    "户部": [
-      "check_treasury",
-      "audit_accounts",
-      "allocate_payroll"
-    ],
-    "查国库": [
-      "check_treasury"
-    ],
-    "查账": [
-      "audit_accounts"
-    ],
-    "调度军饷": [
-      "allocate_payroll"
-    ],
-    "军务": [
-      "check_military",
-      "mobilize_troops",
-      "review_generals"
-    ],
-    "军事": [
-      "check_military",
-      "mobilize_troops",
-      "review_generals"
-    ],
-    "军队": [
-      "check_military",
-      "mobilize_troops",
-      "review_generals"
-    ],
-    "兵部": [
-      "check_military",
-      "mobilize_troops",
-      "review_generals"
-    ],
-    "查军情": [
-      "check_military"
-    ],
-    "调度军队": [
-      "mobilize_troops"
-    ],
-    "调兵": [
-      "mobilize_troops"
-    ],
-    "密查": [
-      "secret_investigation"
-    ],
-    "厂卫": [
-      "secret_investigation",
-      "intimidate_obstruction"
-    ],
-    "锦衣卫": [
-      "secret_investigation"
-    ],
-    "东厂": [
-      "secret_investigation",
-      "intimidate_obstruction"
-    ],
-    "工部": [
-      "estimate_project",
-      "run_technical_trial"
-    ],
-    "工程": [
-      "estimate_project"
-    ],
-    "技术": [
-      "estimate_project",
-      "run_technical_trial"
-    ],
-    "农政": [
-      "estimate_project",
-      "run_technical_trial"
-    ],
-    "火器": [
-      "estimate_project",
-      "run_technical_trial"
-    ]
-  },
-  "directive_keywords": {},
-  "directive_skill_ids": [
-    "draft_directive",
-    "convene_court_debate",
-    "coordinate_ministries",
-    "allocate_payroll",
-    "mobilize_troops",
-    "secret_investigation",
-    "intimidate_obstruction",
-    "run_technical_trial"
-  ],
   "office_definitions": {
     "内阁": {
-      "skills_ref": "内阁",
       "tools": [
         "convene_court_debate"
       ],
@@ -474,7 +109,6 @@
       "corruption_risk": 42
     },
     "户部": {
-      "skills_ref": "户部",
       "tools": [
         "check_treasury"
       ],
@@ -484,7 +118,6 @@
       "corruption_risk": 68
     },
     "兵部": {
-      "skills_ref": "兵部",
       "tools": [
         "check_military"
       ],
@@ -494,7 +127,6 @@
       "corruption_risk": 55
     },
     "工部": {
-      "skills_ref": "工部",
       "tools": [
         "estimate_project"
       ],
@@ -504,7 +136,6 @@
       "corruption_risk": 61
     },
     "司礼监": {
-      "skills_ref": "司礼监",
       "tools": [
         "inner_court_inquiry"
       ],
@@ -514,7 +145,6 @@
       "corruption_risk": 64
     },
     "锦衣卫": {
-      "skills_ref": "锦衣卫",
       "tools": [
         "secret_investigation"
       ],
@@ -524,7 +154,6 @@
       "corruption_risk": 72
     },
     "东厂": {
-      "skills_ref": "东厂",
       "tools": [
         "secret_investigation"
       ],
@@ -534,7 +163,6 @@
       "corruption_risk": 86
     },
     "边镇": {
-      "skills_ref": "边镇",
       "tools": [
         "check_military"
       ],
@@ -544,7 +172,6 @@
       "corruption_risk": 58
     },
     "外臣": {
-      "skills_ref": "外臣",
       "tools": [],
       "authority_scope": "势力君主、贵族、谋臣、藩属国臣等人物的身份归类；用于世界盘面，不授予大明朝堂工具。",
       "power": 55,

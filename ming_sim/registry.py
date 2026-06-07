@@ -441,7 +441,7 @@ def create_minister_agent(
             and getattr(ch, "power_id", "ming") == "ming"
             and context.db.get_character_status(ch.name)[0] != "offstage"
         )
-        army_count = context.db.conn.execute("SELECT COUNT(*) FROM armies").fetchone()[0]
+        army_count = context.db.conn.execute("SELECT COUNT(*) FROM armies WHERE active = 1").fetchone()[0]
         use_roster_tool = active_char_count > 100
         use_army_tool = army_count > 30
         if use_roster_tool:

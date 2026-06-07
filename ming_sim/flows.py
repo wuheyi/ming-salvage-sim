@@ -138,7 +138,7 @@ def compute_budget_lines(db: GameDB, state: GameState) -> Dict[str, Dict[str, li
     cfg = db.get_fiscal_config()
     gk_tax, nk_huang, _ = calc_province_fiscal(state, db)
     army_total = db.conn.execute(
-        "SELECT SUM(maintenance_per_turn) FROM armies WHERE owner_power='ming'"
+        "SELECT SUM(maintenance_per_turn) FROM armies WHERE owner_power='ming' AND active = 1"
     ).fetchone()[0] or 0
 
     budget: Dict[str, Dict[str, list]] = {

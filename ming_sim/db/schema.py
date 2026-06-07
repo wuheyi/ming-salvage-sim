@@ -683,6 +683,9 @@ class _SchemaMixin:
         """)
         self._drop_regions_grain_security_column()
         self._migrate_region_grain_fiscal_fields()
+        # 军队软删除标记：撤销（manpower 归 0）的番号置 active=0，盘面/payload/前端读取层过滤掉，
+        # 行仍留库可被「收复/重建」事件复活。旧档默认 active=1（满编军不受影响）。
+        self.ensure_column("armies", "active", "INTEGER NOT NULL DEFAULT 1")
         self.conn.commit()
         self.init_fiscal_config()
 

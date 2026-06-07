@@ -48,6 +48,7 @@ class _ArmiesMixin:
         sql = f"""
             SELECT *
             FROM armies
+            WHERE active = 1
             ORDER BY {order}
         """
         params: Tuple[object, ...] = ()
@@ -87,8 +88,8 @@ class _ArmiesMixin:
         rows = self.army_rows(limit=limit, danger_order=True)
         if not rows:
             return "军队尚未建档。"
-        total_manpower = self.conn.execute("SELECT SUM(manpower) AS total FROM armies").fetchone()
-        total_maintenance = self.conn.execute("SELECT SUM(maintenance_per_turn) AS total FROM armies").fetchone()
+        total_manpower = self.conn.execute("SELECT SUM(manpower) AS total FROM armies WHERE active = 1").fetchone()
+        total_maintenance = self.conn.execute("SELECT SUM(maintenance_per_turn) AS total FROM armies WHERE active = 1").fetchone()
         parts = []
         for row in rows:
             maint = int(row["maintenance_per_turn"]) or 0
@@ -134,7 +135,7 @@ class _ArmiesMixin:
     def army_roster(self, filter_names: Optional[List[str]] = None, index_only: bool = False) -> str:
         """全军名册。filter_names 非空则只返回指定军队；index_only=True 只返回军名+欠饷+状态索引。"""
         rows = self.conn.execute(
-            "SELECT * FROM armies ORDER BY owner_power='ming' DESC, theater, name"
+            "SELECT * FROM armies WHERE active = 1 ORDER BY owner_power='ming' DESC, theater, name"
         ).fetchall()
         if filter_names:
             rows = [r for r in rows if r["name"] in filter_names or r["id"] in filter_names]
@@ -331,8 +332,99 @@ class _ArmiesMixin:
                         "reason": reason,
                     }
                 )
+            # 本军本轮全部字段落库后：若 manpower 已归 0 且仍 active，自动撤销番号。
+            # 兵尽即除——置 status='撤销'/active=0，清零维护费与欠饷（空壳不再吃饷累欠），
+            # 行留库可被「收复/重建」事件复活。任何把兵打到 0 的来源（裁撤/战损/叛逃）统一收口于此。
+            changes.extend(self._disband_if_empty(state, army_id, event, edict_id, actor, reason))
         self.conn.commit()
         return changes
+
+    def _disband_if_empty(
+        self,
+        state: GameState,
+        army_id: str,
+        event: Event,
+        edict_id: int | None,
+        actor: str,
+        reason: str,
+    ) -> List[Dict[str, object]]:
+        """兵尽（manpower=0）则软删除番号：status='撤销'、active=0、维护费/欠饷清零。
+        已 active=0 的不重复处理。返回追加的变更日志项。"""
+        row = self.conn.execute(
+            "SELECT name, manpower, active, maintenance_per_turn, arrears, status FROM armies WHERE id = ?",
+            (army_id,),
+        ).fetchone()
+        if row is None or int(row["manpower"]) != 0 or int(row["active"]) == 0:
+            return []
+        disband_reason = (reason or f"{event.title}：兵尽番号裁撤").strip()[:80]
+        extra: List[Dict[str, object]] = []
+        # active / status 翻转 + 维护费、欠饷清零，逐项写 army_logs 留审计。
+        field_updates = [
+            ("active", int(row["active"]), 0),
+            ("maintenance_per_turn", int(row["maintenance_per_turn"]), 0),
+            ("arrears", int(row["arrears"]), 0),
+        ]
+        for field, old_v, new_v in field_updates:
+            if old_v == new_v:
+                continue
+            self.conn.execute(
+                f"UPDATE armies SET {field} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (new_v, army_id),
+            )
+            self._log_army_field(state, army_id, field, old_v, new_v, new_v - old_v, disband_reason, event, edict_id, actor)
+        old_status = str(row["status"])
+        if old_status != "撤销":
+            self.conn.execute(
+                "UPDATE armies SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                ("撤销", army_id),
+            )
+            self._log_army_field(state, army_id, "status", old_status, "撤销", None, disband_reason, event, edict_id, actor)
+            extra.append({
+                "army": str(row["name"]),
+                "field": "status",
+                "label": ARMY_FIELD_LABELS.get("status", "status"),
+                "old": old_status,
+                "new": "撤销",
+                "delta": None,
+                "reason": disband_reason,
+            })
+        return extra
+
+    def _log_army_field(
+        self, state: GameState, army_id: str, field: str,
+        old_value: object, new_value: object, delta: int | None,
+        reason: str, event: Event, edict_id: int | None, actor: str,
+    ) -> None:
+        self.conn.execute(
+            """
+            INSERT INTO army_logs
+            (turn, year, period, army_id, field, old_value, new_value, delta, reason, event_id, edict_id, actor)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                state.turn, state.year, state.period, army_id, field,
+                str(old_value), str(new_value), delta, reason,
+                event.id, edict_id, actor,
+            ),
+        )
+
+    def _reactivate_if_refilled(
+        self, state: GameState, army_id: str, item: Dict[str, object],
+        reason: str, event: Event, actor: str,
+    ) -> None:
+        """已撤销番号（active=0）补兵满员后翻回 active=1，并把状态从「撤销」改成本次叙事状态。"""
+        row = self.conn.execute(
+            "SELECT manpower, active, status FROM armies WHERE id = ?", (army_id,)
+        ).fetchone()
+        if row is None or int(row["active"]) == 1 or int(row["manpower"]) <= 0:
+            return
+        new_status = str(item.get("status") or "重建").strip()[:160] or "重建"
+        self.conn.execute(
+            "UPDATE armies SET active = 1, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (new_status, army_id),
+        )
+        self._log_army_field(state, army_id, "active", 0, 1, 1, reason, event, None, actor)
+        self._log_army_field(state, army_id, "status", str(row["status"]), new_status, None, reason, event, None, actor)
 
     def create_armies_from_extraction(
         self,
@@ -380,6 +472,9 @@ class _ArmiesMixin:
                 self.apply_army_deltas(
                     state, pseudo_event, None, actor, {existing["id"]: {"manpower": delta, "reason": reason}}
                 )
+                # 复活：已撤销番号（active=0）被重新募兵补满 → 翻回 active=1，
+                # 顺手把状态从「撤销」改成本次叙事状态（缺则给「重建」）。
+                self._reactivate_if_refilled(state, existing["id"], item, reason, pseudo_event, actor)
                 created.append({"army": existing["name"], "manpower_added": delta, "merged_into_existing": True})
                 continue
             # 必填字段

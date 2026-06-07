@@ -1,7 +1,5 @@
 {
-  "audit_tax_arrears": "毕自严清账：{target}可先列三册：实欠、蠲免、豪右拖欠。若皇威足、户部得专旨，一月可追回约80到120万两；若东林与士绅合阻，则账成而银未必到库。",
   "check_treasury_prefix": "查账：",
-  "allocate_payroll": "户部核饷：{target}若只求稳军，至少拨80万两；若补旧欠，需120万两以上。须指定经手衙门和验收回奏，否则半途挪借、漂没难免。",
   "check_military": "{event_title}军情复核：边防压力{border_pressure}。军队警讯：{army_warning}。前线奏报可信度有限，欠饷会先伤士气，再伤守城。",
   "front_line_plan": "袁崇焕前线部署：{event_title}宜先稳宁锦，补发欠饷，严禁将领虚报冒饷。关宁盘面：{army_detail}。若给饷给权，军队满意可升；若只问责不给银，前线将领会报喜不报忧。",
   "strategic_review": "孙承宗复核：{event_title}不可只看一镇急奏，需核宁锦、山海、京营三处。军队警讯：{army_warning}。先定守势名分，再给袁崇焕责权，东林较易接受；若绕过部议，清流会疑边臣擅权。",

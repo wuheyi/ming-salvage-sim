@@ -45,13 +45,14 @@ from ming_sim.llm_contract import fail_if_llm_error
 from ming_sim.issues import _format_issue_ongoing
 from ming_sim.session import GameSession
 from ming_sim.session import AUTO_SAVE_PREFIX
-from ming_sim.skills import available_skill_ids, skill_display_name, skill_source_labels
 from ming_sim.context import character_context_with_db, match_minister_from_text
 from ming_sim.constants import TURN_UNIT
 from ming_sim.flows import calc_province_fiscal, compute_budget_lines
 from ming_sim.simulation import build_simulator_payload
 from ming_sim.exceptions import LLMContractError  # noqa: F401  (保留：供错误处理)
 from ming_sim.models import Character, LLMConfig
+from ming_sim.registry import _BASE_SKILLS
+from ming_sim.tools import build_minister_tools
 from ming_sim.token_stats import record_stream_metrics
 from ming_sim import steam_events
 
@@ -63,6 +64,101 @@ UPLOAD_PORTRAIT_DIR = user_data_path("uploads", "portraits")
 CUSTOM_PORTRAIT_PREFIX = "custom:"
 ALLOWED_PORTRAIT_TYPES = {"image/png", "image/jpeg", "image/webp"}
 MAX_PORTRAIT_BYTES = 8 * 1024 * 1024  # 8MB 上限
+
+_AGNO_SKILL_DESCRIPTIONS = {
+    "memory-recall": "查阅既往邸报与起居注，补足旧事来龙去脉。",
+    "decree-drafting": "把已定处置整理成圣旨草案并入档。",
+    "secret-order": "下达、催办、追问密令，并记入密档。",
+    "summon": "传召朝臣，必要时补登名册外人物。",
+    "tax-adjust": "户部调税事项，立为可追踪政务。",
+    "consort-selection": "奉旨遴选后宫人选，呈候选名单。",
+    "court-roster": "查阅在朝人物名册。",
+    "army-roster": "查阅军队名册。",
+}
+
+_TOOL_LABELS = {
+    "list_memorials": "查看在办事项",
+    "inspect_memorial": "查看事项细节",
+    "list_regions": "查看地区警讯",
+    "inspect_region": "查看地区详情",
+    "list_buildings": "查看建筑",
+    "inspect_building": "查看建筑详情",
+    "estimate_resistance": "估算阻力",
+    "read_past_report": "查阅旧邸报",
+    "search_memories": "检索起居注",
+    "inspect_treasury_ledger": "查钱库流水",
+    "propose_directive": "拟旨入档",
+    "secret_order": "密令",
+    "dismiss_minister": "退朝",
+    "summon_minister": "传召大臣",
+    "register_unlisted_person": "登记名册外人物",
+    "query_court_roster": "查询朝臣名册",
+    "query_army_roster": "查询军队名册",
+    "propose_appointment": "吏部铨选",
+    "check_treasury": "查国库",
+    "adjust_tax": "调税",
+    "present_consort_candidates": "选妃呈名单",
+}
+
+_RUNTIME_SKILL_LABELS = {
+    "memory-recall": "旧事记忆",
+    "decree-drafting": "拟旨入档",
+    "secret-order": "密令",
+    "summon": "召见传人",
+    "tax-adjust": "调税",
+    "consort-selection": "选妃",
+    "court-roster": "朝臣名册查询",
+    "army-roster": "军队名册查询",
+}
+
+_TOOL_DESCRIPTIONS = {
+    "list_memorials": "查看当前在办的所有事项。",
+    "inspect_memorial": "查看某条在办事项的细节。",
+    "list_regions": "查看两京十三省最危险地区和账面月税。",
+    "inspect_region": "查看某一地区人口、民心、动乱、天灾、人祸、田亩和税收。",
+    "list_buildings": "查看全国在册建筑的等级、完好、维护费与产出。",
+    "inspect_building": "查看某座建筑的类别、等级、完好、维护费、风险与产出。",
+    "estimate_resistance": "估算某条在办事项下旨推动时的主要阻力。",
+    "read_past_report": "查阅既往邸报，了解此前朝局走向。",
+    "search_memories": "检索起居注章节旧事。",
+    "inspect_treasury_ledger": "查国库或内库的历史流水明细。",
+    "propose_directive": "把已定处置方案拟成圣旨草稿呈阅。",
+    "secret_order": "处理密令下达、进展、结案与催办。",
+    "dismiss_minister": "结束本次召见。",
+    "summon_minister": "传召另一位大臣入殿。",
+    "register_unlisted_person": "登记名册外人物，使其进入本局可召见人物池。",
+    "query_court_roster": "查询朝臣名册。",
+    "query_army_roster": "查询军队名册。",
+    "propose_appointment": "吏部铨选拟任。",
+    "check_treasury": "查国库、内库、收支和欠账。",
+    "adjust_tax": "奏请调整税额，立为可追踪调税事项。",
+    "present_consort_candidates": "奉旨选妃，呈候选名单。",
+}
+
+_PLAYER_TEXT_REPLACEMENTS = (
+    ("Agno", ""),
+    ("agno", ""),
+    ("Tool", "工具"),
+    ("tool", "工具"),
+    ("skill", "能力"),
+    ("issue", "事项"),
+    ("slot", "事项序号"),
+    ("list_memorials", "在办事项清单"),
+    ("decree_text", "圣旨正文"),
+    ("action", "处置"),
+    ("order_id", "密令编号"),
+    ("tags_json", "关键词"),
+    ("aliases_json", "别名"),
+    ("deadline_months", "期限"),
+    ("summon_after", "随后传召"),
+)
+
+
+def _player_text(text: str) -> str:
+    out = str(text or "").strip()
+    for old, new in _PLAYER_TEXT_REPLACEMENTS:
+        out = out.replace(old, new)
+    return out.replace("（）", "").strip()
 
 # resolve/fail_condition 同时喂 extractor（需 input.factions/leverage 等技术 key）与展示给玩家。
 # 展示前把技术词替换成中文，原文不动（LLM 仍读原文判定）。按长键先替，避免子串误伤。
@@ -631,6 +727,69 @@ class WebGame:
             character.portrait_id = portrait_id
 
     # ── 序列化 ────────────────────────────────────────────────────────────
+    def _runtime_query_flags(self) -> tuple[bool, bool]:
+        active_char_count = sum(
+            1 for ch in self.content.characters.values()
+            if ch.office_type != "后宫"
+            and getattr(ch, "power_id", "ming") == "ming"
+            and self.db.get_character_status(ch.name)[0] != "offstage"
+        )
+        army_count = self.db.conn.execute("SELECT COUNT(*) FROM armies WHERE active = 1").fetchone()[0]
+        return active_char_count > 100, army_count > 30
+
+    def _runtime_skill_payloads(self, character: Character) -> List[Dict[str, Any]]:
+        use_roster_tool, use_army_tool = self._runtime_query_flags()
+        grant = self.db.get_office_court_grant(character.office_type)
+        agno_skill_ids = list(_BASE_SKILLS)
+        for skill_id in list(grant.get("agno_skills") or []):
+            if skill_id not in agno_skill_ids:
+                agno_skill_ids.append(str(skill_id))
+        if use_roster_tool and "court-roster" not in agno_skill_ids:
+            agno_skill_ids.append("court-roster")
+        if use_army_tool and "army-roster" not in agno_skill_ids:
+            agno_skill_ids.append("army-roster")
+
+        context = self.session.registry.context
+        tools = build_minister_tools(
+            character,
+            context,
+            use_roster_tool=use_roster_tool,
+            use_army_tool=use_army_tool,
+        )
+        if "present_consort_candidates" in (grant.get("court_tools") or []):
+            def present_consort_candidates() -> str:
+                """奉旨选妃，呈候选名单。"""
+                return ""
+            tools.append(present_consort_candidates)
+
+        payloads: List[Dict[str, Any]] = []
+        for skill_id in agno_skill_ids:
+            skill_name = _RUNTIME_SKILL_LABELS.get(skill_id, "可用能力")
+            skill_description = _AGNO_SKILL_DESCRIPTIONS.get(skill_id, "")
+            payloads.append({
+                "id": skill_id,
+                "name": _player_text(skill_name),
+                "kind": "agno_skill",
+                "sources": ["运行时加载"],
+                "description": _player_text(skill_description),
+            })
+        seen_tools: set[str] = set()
+        for tool in tools:
+            tool_id = getattr(tool, "__name__", str(tool))
+            if tool_id in seen_tools:
+                continue
+            seen_tools.add(tool_id)
+            tool_name = _TOOL_LABELS.get(tool_id, "可用工具")
+            tool_description = _TOOL_DESCRIPTIONS.get(tool_id, "")
+            payloads.append({
+                "id": tool_id,
+                "name": _player_text(tool_name),
+                "kind": "tool",
+                "sources": ["运行时挂载"],
+                "description": _player_text(tool_description),
+            })
+        return payloads
+
     def public_character(self, character: Character) -> Dict[str, Any]:
         status, status_reason = self.db.get_character_status(character.name)
         status_label = _STATUS_LABEL_WEB.get(status, "在朝" if status == "active" else status)
@@ -646,22 +805,27 @@ class WebGame:
             "office": office,
             "office_type": character.office_type,
             "faction": character.faction,
+            "aliases": character.aliases,
+            "personal_skills": character.personal_skills,
+            "loyalty": character.loyalty,
+            "ability": character.ability,
+            "integrity": character.integrity,
+            "courage": character.courage,
             "style": character.style,
+            "location": character.location,
+            "birth_year": character.birth_year,
+            "historical_death_year": character.historical_death_year,
+            "historical_death_month": character.historical_death_month,
+            "debut_year": character.debut_year,
+            "debut_month": character.debut_month,
             "status": status,
             "status_reason": status_reason,
             "status_label": status_label,
             "summary": summary,
+            "description": character.summary,
             "portrait_id": character.portrait_id,
             "power_id": power_id,
-            "skills": [
-                {
-                    "id": skill_id,
-                    "name": skill_display_name(skill_id),
-                    "sources": skill_source_labels(character, skill_id, self.db),
-                    "description": self.content.skill_descriptions.get(skill_id, ""),
-                }
-                for skill_id in available_skill_ids(character, self.db)
-            ],
+            "skills": self._runtime_skill_payloads(character),
             "favorite": character.name in self.favorites,
         }
 
@@ -672,13 +836,14 @@ class WebGame:
         return (row["power_id"] if row else None) or getattr(character, "power_id", "ming") or "ming"
 
     def directive_payload(self, row) -> Dict[str, Any]:
+        skill_id = str(row["skill_id"] or "")
         return {
             "id": int(row["id"]),
             "event_id": row["event_id"] or "",
             "event_title": (row["event_title"] if "event_title" in row.keys() else "") or "",
             "actor": row["actor"] or "",
-            "skill_id": row["skill_id"] or "",
-            "skill_name": skill_display_name(str(row["skill_id"] or "")),
+            "skill_id": skill_id,
+            "skill_name": _TOOL_LABELS.get(skill_id) or _RUNTIME_SKILL_LABELS.get(skill_id) or skill_id,
             "text": row["text"],
             "source": row["source"],
             "status": row["status"],
@@ -1773,17 +1938,17 @@ class WebGame:
             {"label": "拟旨", "text": "拟旨如下：", "prefix": True},
             {"label": "下密令", "text": "密令如下：", "prefix": True},
         ]
-        skill_ids = set(available_skill_ids(character, self.db))
+        runtime_ids = {item["id"] for item in self._runtime_skill_payloads(character)}
         # office 专属快捷话术 chip 走 offices.court_grant_json(DB 唯一真相，seed 自 skills.json)，
         # 固定开头话术硬触发对应 agno skill。加新 office chip 改 JSON 升版本，运行时改直接 UPDATE DB。
         _grant = self.db.get_office_court_grant(character.office_type)
         for chip in (_grant.get("chips") or []):
             suggestions.insert(1, dict(chip))
-        if "check_treasury" in skill_ids:
+        if "check_treasury" in runtime_ids:
             suggestions.insert(1, {"label": "查钱粮", "text": "太仓和内库实数如何？本月哪些钱最急？"})
-        if "check_military" in skill_ids or "front_line_plan" in skill_ids or "strategic_review" in skill_ids:
+        if "query_army_roster" in runtime_ids:
             suggestions.insert(1, {"label": "查驻军", "text": "查一下关宁军、京营和陕西边军的士气、欠饷与补给。"})
-        if "secret_investigation" in skill_ids:
+        if "secret_order" in runtime_ids:
             suggestions.insert(1, {"label": "密查", "text": "哪些账册和人物最该先密查？"})
         return suggestions[:6]
 
@@ -2188,7 +2353,7 @@ async def api_menu_save_llm(request: LlmSetupRequest) -> Dict[str, Any]:
 
 
 class GameSettingsRequest(BaseModel):
-    # HITL 每回合最少决策点数，0-5。0=不强制（宁缺毋滥）。
+    # HITL 每回合最多决策点数，0-5。0=关闭 HITL 注入。
     hitl_min_decisions: int = 1
     # 朝会聊天室 ReAct 交锋轮数，未形成结论前继续驱动 agent；默认 3。
     court_chat_debate_rounds: int = 3

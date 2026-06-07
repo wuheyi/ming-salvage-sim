@@ -7845,6 +7845,40 @@ button:disabled {
   transition: background 100ms, border-color 100ms;
 }
 
+.right-drawer-row-minister {
+  position: relative;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.right-drawer-row-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.minister-detail-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid rgba(130, 84, 28, 0.24);
+  border-radius: 5px;
+  color: #704718;
+  background: rgba(255, 246, 218, 0.88);
+  cursor: pointer;
+}
+
+.minister-detail-open:hover {
+  color: #351b04;
+  border-color: rgba(130, 84, 28, 0.5);
+  background: rgba(246, 221, 156, 0.95);
+}
+
 .right-drawer-row:hover {
   background: rgba(255, 245, 215, 0.95);
   border-color: rgba(200, 160, 60, 0.3);
@@ -8004,6 +8038,158 @@ button:disabled {
   color: #6a5030;
   flex-shrink: 0;
   text-align: right;
+}
+
+.minister-detail-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.minister-detail-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.minister-detail-dialog {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: clamp(760px, 72vw, 1040px);
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 48px);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+  color: #1a1a1a;
+  overflow: hidden;
+}
+
+.minister-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.minister-detail-header h2 {
+  margin: 4px 0 0;
+  color: #1a1a1a;
+  font-size: 0.98rem;
+  letter-spacing: 0;
+}
+
+.minister-detail-header p {
+  margin: 0;
+  color: #888;
+  font-size: 0.78rem;
+}
+
+.minister-detail-body {
+  overflow: auto;
+  padding: 10px 12px 12px;
+}
+
+.minister-detail-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.minister-detail-portrait {
+  position: sticky;
+  top: 0;
+  width: 220px;
+  height: 308px;
+  overflow: hidden;
+  border: 1px solid #e3e3e3;
+  border-radius: 6px;
+  background: #f5f1e8;
+}
+
+.minister-detail-portrait .minister-card-portrait,
+.minister-detail-portrait .minister-card-portrait-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+
+.minister-detail-raw {
+  margin-top: 12px;
+  color: #1a1a1a;
+}
+
+.minister-detail-raw summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.minister-detail-raw table {
+  margin: 10px 0 0;
+}
+
+.minister-detail-body .intel-table {
+  font-size: 0.72rem;
+}
+
+.minister-detail-body .intel-table th,
+.minister-detail-body .intel-table td {
+  padding: 3px 6px;
+  border-color: #e3e3e3;
+  line-height: 1.25;
+  vertical-align: top;
+}
+
+.minister-detail-body .intel-table tbody th {
+  width: 4em;
+  color: #555;
+  font-weight: 600;
+  background: #f5f1e8;
+  white-space: nowrap;
+}
+
+.minister-detail-body .intel-table td {
+  color: #1a1a1a;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.minister-detail-body .intel-table .intel-section-th {
+  width: auto;
+  color: #5a4422;
+  background: #ece3cf;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: left;
+  white-space: normal;
+}
+
+.minister-detail-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+
+@media (max-width: 720px) {
+  .minister-detail-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .minister-detail-portrait {
+    position: relative;
+    width: min(180px, 56vw);
+    height: min(252px, 78vw);
+    margin: 0 auto;
+  }
 }
 
 /* ───────────────── 新 HUD：整图底图 + 坐标坑位 ───────────────── */

@@ -2,13 +2,33 @@
 
 你不创作，只翻译与定档.
 
-## 抽取流程（先在心里按序走完五步，再一次性写出最终 JSON）
+## 1. 抽取流程
 
-force_json 模式下你**只能输出最终 JSON**，不得吐出思考文本。但下笔前必须在心里依次完成这五步推理，漏步是漏抽/重复落库的根因：
+force_json 模式下你**只能输出最终 JSON**，不得吐出思考文本。但下笔前必须在心里先完成“本{{TURN_UNIT}}进展 → 盘面校验”的阅读顺序，漏读会导致把旧闻当新事、把背景当结果。
 
-**盘面读法**：基线盘面在 system 的 simulator_payload 里。其中 buildings/departments/technologies/court_roster/armies/regions 等表以 **TSV 文本块**给出（块头 `## 表名`，块内首行 tab 分隔列名，其后每行一条记录按列名对位、空字段为空串）；departments=已设衙门、technologies=已解锁科技（空表只有表头＝尚未设立，立新的别与已有重名）；powers/factions/classes 等其余字段在「## 其余字段（JSON）」内。算 delta 一律「相对该 TSV/JSON 里的当前值」，按列名取字段，不凭叙事印象。
+### 1.1 先读本{{TURN_UNIT}}进展
 
-## 模块化输出纪律
+所有模块都先通读本{{TURN_UNIT}}奏章三类栏目，建立“本{{TURN_UNIT}}到底发生了什么”的时间线：
+
+#### 1.1.1 诏书核销
+
+读本{{TURN_UNIT}}诏书逐条落地情况：已办成、未办成、还是进展中；相关背景在 `decree_text` 与盘面表。
+
+#### 1.1.2 密旨动向
+
+读密令本{{TURN_UNIT}}办到哪一步、是否有风声/风险、是否进入核议；相关背景在 `secret_orders`。
+
+#### 1.1.3 待办未解
+
+读在办事项本{{TURN_UNIT}}停在哪、推进到哪、是否新冒出情势；相关背景在 `active_issues` 与 `candidate_events`。
+
+### 1.2 再读盘面校验
+
+基线盘面在 system 的 simulator_payload 里。其中 buildings/departments/technologies/court_roster/armies/regions 等表以 **TSV 文本块**给出（块头 `## 表名`，块内首行 tab 分隔列名，其后每行一条记录按列名对位、空字段为空串）；departments=已设衙门、technologies=已解锁科技（空表只有表头＝尚未设立，立新的别与已有重名）；powers/factions/classes 等其余字段在「## 其余字段（JSON）」内。算 delta 一律「相对该 TSV/JSON 里的当前值」，按列名取字段，不凭叙事印象。
+
+三栏之外的旧闻、背景、议论、历史锚点只能辅助理解，不得单独当成本{{TURN_UNIT}}新进展；盘面只用于校验对象存在、状态合法、增量相对值，不得替代本{{TURN_UNIT}}进展本身。
+
+## 2. 模块化输出纪律
 
 - 你只输出当前模块允许的顶层字段；不属于当前模块的字段一律不要输出。
 - 当前模块要求的顶层字段都必须出现；无内容的字段填 `{}` 或 `[]`。
@@ -16,4 +36,3 @@ force_json 模式下你**只能输出最终 JSON**，不得吐出思考文本。
 - 字段类型、增量/新值语义必须与总 extractor 契约一致。
 - 所有数值增量必须是 integer。能从字符串转成数字也要直接输出数字，不要输出 `"5"`。
 - 严禁使用契约外别名字段，例如 `amount` / `value` / `money` / `cost` / `change`。
-

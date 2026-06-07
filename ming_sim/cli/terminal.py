@@ -16,7 +16,6 @@ from ming_sim.context import match_minister_from_text
 from ming_sim.exceptions import ExitGame
 from ming_sim.models import Character, GameState
 from ming_sim.session import GameSession, TurnPhase
-from ming_sim.skills import print_all_skill_cards, print_skill_card, skill_display_name
 
 _STATUS_LABEL = {
     "active": "在朝",
@@ -55,7 +54,7 @@ def choose_minister(session: GameSession) -> Optional[Character]:
         tag = "" if status == "active" else f"  [{_STATUS_LABEL.get(status, status)}]"
         print(f"{idx}. {c.name}（{c.office}，{c.faction}）{tag}")
     while True:
-        raw = input("召见谁？输入编号或姓名，skills 查看技能卡，quit 退朝审阅诏书，exit 退出游戏：").strip()
+        raw = input("召见谁？输入编号或姓名，quit 退朝审阅诏书，exit 退出游戏：").strip()
         if not raw:
             print("请输入编号或姓名。")
             continue
@@ -64,9 +63,6 @@ def choose_minister(session: GameSession) -> Optional[Character]:
             raise ExitGame
         if lowered in COURT_BREAK_COMMANDS:
             return None
-        if lowered in {"skills", "skill", "技能", "技能卡", "查看技能"}:
-            print_all_skill_cards(session.db)
-            continue
         candidate: Optional[Character] = None
         if raw.isdigit() and 1 <= int(raw) <= len(names):
             candidate = characters[names[int(raw) - 1]]
@@ -101,24 +97,6 @@ def choose_minister(session: GameSession) -> Optional[Character]:
         return candidate
 
 
-def _skill_ids_from_text(session: GameSession, text: str) -> List[str]:
-    matched: List[str] = []
-    for keyword, skill_ids in session.content.grant_keywords.items():
-        if keyword in text:
-            matched.extend(skill_ids)
-    for skill_id, definition in session.content.skill_catalog.items():
-        name = str(definition.get("name", ""))
-        if skill_id in text or (name and name in text):
-            matched.append(skill_id)
-    unique: List[str] = []
-    seen: set = set()
-    for skill_id in matched:
-        if skill_id not in seen:
-            seen.add(skill_id)
-            unique.append(skill_id)
-    return unique
-
-
 def _handle_court_command(
     session: GameSession, text: str, current: Character
 ) -> Optional[str]:
@@ -134,24 +112,12 @@ def _handle_court_command(
     # 技能卡查看
     if (lowered in {"skills", "skill", "技能", "技能卡", "查看技能", "查看skill"} or "技能" in raw) \
             and not any(w in raw for w in ("授权", "授予", "交给", "收回", "撤销", "取消授权", "命", "令", "着")):
-        target = match_minister_from_text(raw, None) or current
-        print_skill_card(target, session.db)
-        print()
+        print("旧技能卡已移除；运行时能力以 Agno skills/tools 为准，请在网页版人物详情查看。\n")
         return "handled"
 
     # 收回授权
     if "授权" in raw and any(w in raw for w in ("收回", "撤销", "取消", "停用", "夺回")):
-        target = match_minister_from_text(raw, None) or current
-        revoked = [
-            skill_display_name(sid)
-            for sid in _skill_ids_from_text(session, raw)
-            if session.db.revoke_skill(target.name, sid)
-        ]
-        if revoked:
-            print(f"已收回{target.name}：{'、'.join(revoked)}。\n")
-            session.registry.refresh(target.name)
-        else:
-            print(f"{target.name}没有可收回的相关授权，或未识别要收回的 skill。\n")
+        print("旧 skill 授权已移除；运行时授权请改 offices.court_grant_json 的 agno_skills/court_tools。\n")
         return "handled"
 
     # 退下（短句正则，不误伤长对话）
@@ -179,17 +145,7 @@ def _handle_court_command(
 
     # 授予授权
     if any(w in raw for w in ("授权", "交给", "授予")):
-        target = match_minister_from_text(raw, None) or current
-        granted = [
-            skill_display_name(sid)
-            for sid in _skill_ids_from_text(session, raw)
-            if session.db.grant_skill(session.state, target.name, sid)
-        ]
-        if granted:
-            print(f"已授权{target.name}：{'、'.join(granted)}。\n")
-            session.registry.refresh(target.name)
-        else:
-            print(f"{target.name}已有相关授权，或未识别要授权的 skill。\n")
+        print("旧 skill 授权已移除；运行时授权请改 offices.court_grant_json 的 agno_skills/court_tools。\n")
         return "handled"
 
     return None
@@ -297,9 +253,6 @@ def review_directives(session: GameSession) -> str:
         if lowered in {"back", "b", "返回", "继续召见"}:
             session.back_to_summoning()
             return "back"
-        if lowered in {"skills", "skill", "技能", "技能卡", "查看技能"}:
-            print_all_skill_cards(session.db)
-            continue
         if lowered in {"issue", "颁布", "颁布诏书", "发布", "拟诏"}:
             if pending:
                 print(f"尚有 {len(pending)} 道大臣拟旨待核定（confirm/reject），不能颁诏。")

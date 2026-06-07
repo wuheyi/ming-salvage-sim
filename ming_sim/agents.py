@@ -16,6 +16,7 @@ from agno.agent import Agent
 from agno.db.sqlite import SqliteDb
 
 from ming_sim.assets import strip_json_fence
+from ming_sim.constants import TURN_UNIT
 from ming_sim.content import GameContent
 from ming_sim.exceptions import LLMContractError, LLMUnavailable
 from ming_sim.llm_config import for_role as _llm_for_role, is_minimax_base_url
@@ -32,6 +33,27 @@ _MINIMAX_SHORT_THINKING_PROMPT = (
     "不要写英文分析；不要自我解释“我将如何回答”；思考控制在约 200 个中文字内。"
     "最终正文仍须完整遵守月末奏疏格式与内容要求。"
 )
+_HITL_PROMPT = """## 4. 重大抉择（HITL 决策点，亲裁级，最多 5 个）
+
+奏章正文写完之后，在奏章末尾追加决策块，交皇帝亲裁。决策块是给皇帝的二选一/三选一，需崇祯本人当场拍板、且选不同则剧情明显分岔；不是叙事，也不是把已成定局的事再问一遍。
+
+**产出条数由 `simulator_payload.hitl_min_decisions` 定上限**：
+- `hitl_min_decisions` ≥ 1：本{{TURN_UNIT}}**最多产出这么多个**决策块。只在盘面真有亲裁级分岔时才出；若没有够格抉择，可以不出。不要为了凑数把寻常政务、中等张力或已成定局之事做成抉择。
+
+够格的典型亲裁级抉择：战与和（边镇决战还是议款）、是否动内帑济辽/赈灾、是否族诛/赦免某重臣、是否迁都/弃地、是否纳某降将、是否答应外部势力的密约、某项改革遇阻是强推还是缓行。寻常政务、已在诏书里定了的事不要做成抉择。总数任何情况下不超过 5 个。
+
+格式（严格 JSON，一桩一块，最多 5 块，每块独立一行的 `<<DECISION>>` 与 `<<END>>` 包裹）：
+
+```
+<<DECISION>>
+{"title":"≤12字抉择名","context":"40-80字交代为何此刻非皇帝亲断不可、各方逼到哪一步","options":[{"label":"选项一","hint":"方向性后果倾向"},{"label":"选项二","hint":"方向性后果倾向"}]}
+<<END>>
+```
+
+- `options` 给 **2-3 个**互斥选项；`label` 是皇帝可下的旨意，`hint` 只给**方向性倾向**（如「边防暂安，然赔款耗内帑、士林哗然」），**不写具体数值、不写 bar/±N**。
+- `context` 写清当前逼到的局面，别复述整章正文。
+- 决策块只放奏章**最末尾**，放在最后一章「陛下未知者」之后；块外不再有正文。
+- 抉择必须从本{{TURN_UNIT}}盘面/诏书/在办局势/候选情势自然长出，**不得为凑决策点硬造**清单外的新危机；上限只限制最多写几处，不要求写满。"""
 
 
 def bind_content(content: GameContent) -> None:
@@ -43,6 +65,16 @@ def _ctx() -> GameContent:
     if _content is None:
         raise RuntimeError("agents.bind_content() 未调用：GameContent 未注入。")
     return _content
+
+
+def _render_hitl_prompt(prompt: str, simulator_payload: Optional[Dict[str, object]]) -> str:
+    raw_min_decisions = (simulator_payload or {}).get("hitl_min_decisions", 0)
+    try:
+        min_decisions = int(raw_min_decisions)
+    except (TypeError, ValueError):
+        min_decisions = 0
+    hitl_prompt = _HITL_PROMPT.replace("{{TURN_UNIT}}", TURN_UNIT) if min_decisions > 0 else ""
+    return prompt.replace("{{HITL}}", hitl_prompt)
 
 
 # 调试开关：MING_SIM_DUMP_LLM=1 时把每次 agno 调用真实送进 LLM 的 system/user/assistant
@@ -385,7 +417,6 @@ def build_simulator_context(simulator_payload: Optional[Dict[str, object]]) -> s
         "powers_brief",
         "active_issues",
         "candidate_events",
-        "previous_narrative_tail",
         "decree_text",
         "deaths_this_turn",
         "debuts_this_turn",
@@ -424,7 +455,8 @@ def create_season_simulator_agent(
     tlog(f"[simulator] 使用模型 {cfg.model}")
     # simulator_context 与 extractor 共用 build_simulator_context → 字节一致 → 暖好 extractor 前缀缓存。
     simulator_context = build_simulator_context(simulator_payload)
-    instructions = [_ctx().game_world_prompt, simulator_context, _ctx().season_simulator_prompt]
+    season_prompt = _render_hitl_prompt(_ctx().season_simulator_prompt, simulator_payload)
+    instructions = [_ctx().game_world_prompt, simulator_context, season_prompt]
     if is_minimax_base_url(cfg.base_url):
         instructions.insert(0, _MINIMAX_SHORT_THINKING_PROMPT)
 

@@ -131,15 +131,28 @@ export type Minister = {
   office: string;  // 去职者已清空，可能为空串
   office_type: string;
   faction: string;
+  aliases?: string[];
+  personal_skills?: string[];
+  loyalty?: number;
+  ability?: number;
+  integrity?: number;
+  courage?: number;
   style: string;
+  location?: string;
+  birth_year?: number;
+  historical_death_year?: number;
+  historical_death_month?: number;
+  debut_year?: number;
+  debut_month?: number;
   status: string;  // active/dismissed/imprisoned/exiled/retired/dead/offstage
   status_reason?: string;
   status_label: string;  // 中文：在朝/已罢黜/下狱/流放/致仕…
   summary: string;
+  description?: string;
   favorite: boolean;
   portrait_id?: string;  // 空/undefined=无专属，前端 fallback 到池
   power_id?: string;     // 大明=ming, 后金=houjin, 流寇=bandits 等
-  skills: Array<{ id: string; name: string; sources: string[]; description: string }>;
+  skills: Array<{ id: string; name: string; kind?: string; sources: string[]; description: string }>;
 };
 
 export type EventItem = {
