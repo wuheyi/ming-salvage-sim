@@ -242,8 +242,13 @@ class _RegionsMixin:
                     log_delta = actual_delta
                 else:  # REGION_TEXT_FIELDS
                     text_value = str(value).strip()[:160]
-                    if not text_value or text_value == str(old_value):
+                    if not text_value or text_value in ("None", "null") or text_value == str(old_value):
                         continue
+                    if field == "controlled_by":
+                        valid_powers = {r[0] for r in self.conn.execute("SELECT id FROM powers")}
+                        if text_value not in valid_powers:
+                            print(f"[WARN] controlled_by 非法值 '{text_value}'（地区 '{region_id}'）→ 跳过")
+                            continue
                     stored_new = text_value
                     log_delta = None
                 self.conn.execute(

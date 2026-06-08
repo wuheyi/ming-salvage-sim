@@ -1173,6 +1173,7 @@ export function CourtDrawer({
                   rows={1}
                   onChange={(e) => onCourtChatInputChange(e.target.value)}
                   onKeyDown={(e) => {
+                    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       onSendCourtChat(courtChatRoster);
@@ -1245,6 +1246,7 @@ export function CourtDrawer({
                 rows={1}
                 onChange={(e) => onCourtChatInputChange(e.target.value)}
                 onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing || e.keyCode === 229) return;
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     onSendCourtChat(courtChatRoster);

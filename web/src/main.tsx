@@ -1474,6 +1474,7 @@ function CheatConsole({
             placeholder="例：国库增至九千万两，后金军覆灭，皇太极暴毙"
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return;
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 submit();
