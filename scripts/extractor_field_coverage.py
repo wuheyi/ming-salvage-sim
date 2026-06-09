@@ -72,15 +72,16 @@ def disable_simulator() -> None:
     import ming_sim.simulation as _sim
     _orig = _sim.build_simulator_payload
 
+    # 用 *args/**kwargs 吞掉所有调用参数，避免真实 simulate_season_with_payload
+    # 签名增删（如新增 structured_directives）导致 fake 收不下而整步骤异常→extractor 被跳过。
     def _fake_simulate(agent, state, db, decree_text, previous_narrative,
-                       deaths_this_turn=None, debuts_this_turn=None,
-                       on_thinking=None, on_text=None,
-                       relevant_memories=None, secret_orders=None,
-                       simulator_payload=None):
-        payload = simulator_payload or _orig(
+                       *args, **kwargs):
+        payload = kwargs.get("simulator_payload") or _orig(
             state, db, decree_text, previous_narrative,
-            deaths_this_turn=deaths_this_turn, debuts_this_turn=debuts_this_turn,
-            relevant_memories=relevant_memories, secret_orders=secret_orders,
+            deaths_this_turn=kwargs.get("deaths_this_turn"),
+            debuts_this_turn=kwargs.get("debuts_this_turn"),
+            relevant_memories=kwargs.get("relevant_memories"),
+            secret_orders=kwargs.get("secret_orders"),
         )
         narrative = f"《{state.year}年{state.period}月诏书施行》\n{decree_text}"
         return narrative, payload
@@ -117,6 +118,70 @@ def _nonempty_top_fields(extracted: dict) -> set[str]:
     return out
 
 
+# 字段名中英别名：expect_values 里写中文，实抽 JSON 可能落英文 key（mode/value/direction…）
+_VALUE_KEY_ALIASES = {
+    "口径": "mode", "数值": "value", "增量": "delta", "账户": "account",
+    "方向": "direction", "显示名": "display", "初值": "init_value",
+    "计税公式": "formula", "计税依据": "basis", "税率单位": "rate_unit",
+    "原因": "reason", "目标编号": "target_id", "用途": "purpose",
+    "局势编号": "issue_id", "进度增量": "delta_bar", "密令编号": "order_id",
+    "状态": "status", "新势力": "new_power", "归属": "owner_power",
+}
+
+
+def _val_eq(want: object, got: object) -> bool:
+    """单值比对：数字容差 0.01，其余按字符串精确（去空白）。"""
+    if isinstance(want, (int, float)) and isinstance(got, (int, float)):
+        return abs(float(want) - float(got)) <= 0.01
+    return str(want).strip() == str(got).strip()
+
+
+def _subdict_matches(want: dict, got: dict) -> bool:
+    """got 是否满足 want 里**每一个**键值（只查 want 写出的键，多余键无所谓）。
+    键支持中英别名：want 写 '口径'，got 落 'mode' 也算命中。"""
+    if not isinstance(got, dict):
+        return False
+    for wk, wv in want.items():
+        candidates = {wk, _VALUE_KEY_ALIASES.get(wk, wk)}
+        # 反向：want 写英文、got 落中文
+        candidates |= {cn for cn, en in _VALUE_KEY_ALIASES.items() if en == wk}
+        gv = next((got[c] for c in candidates if c in got), KeyError)
+        if gv is KeyError or not _val_eq(wv, gv):
+            return False
+    return True
+
+
+def _check_expect_values(expect_values: dict, extracted: dict) -> list[str]:
+    """深度值校验。返回失败说明列表（空=全过）。
+    - list 字段（如 财政制度变化/钱粮收支）：want 每条断言，须在实抽 list 里找到**一条**子项满足。
+    - dict 字段（如 地区变化 {region_id:{...}}）：want 每个 key，实抽对应 key 须满足其断言子 dict。
+    """
+    fails: list[str] = []
+    for field, want in (expect_values or {}).items():
+        got = extracted.get(field)
+        if got is None or got == [] or got == {}:
+            fails.append(f"{field}: 实抽为空，无法核值")
+            continue
+        if isinstance(want, list):
+            arr = got if isinstance(got, list) else [got]
+            for i, w in enumerate(want):
+                if not any(_subdict_matches(w, item) for item in arr):
+                    fails.append(f"{field}[期望项{i}]={json.dumps(w, ensure_ascii=False)} "
+                                 f"未在实抽中找到匹配；实抽={json.dumps(arr, ensure_ascii=False)[:200]}")
+        elif isinstance(want, dict):
+            gd = got if isinstance(got, dict) else {}
+            for wk, wv in want.items():
+                if wk not in gd:
+                    fails.append(f"{field}.{wk} 缺失；实抽键={list(gd.keys())}")
+                elif isinstance(wv, dict):
+                    if not _subdict_matches(wv, gd.get(wk)):
+                        fails.append(f"{field}.{wk}={json.dumps(wv, ensure_ascii=False)} "
+                                     f"不符；实抽={json.dumps(gd.get(wk), ensure_ascii=False)[:120]}")
+                elif not _val_eq(wv, gd.get(wk)):
+                    fails.append(f"{field}.{wk} 期望 {wv!r} 实得 {gd.get(wk)!r}")
+    return fails
+
+
 def run_case(case: dict, args: argparse.Namespace) -> dict:
     """跑单 case，返回结果 dict。"""
     cid = case["id"]
@@ -135,7 +200,10 @@ def run_case(case: dict, args: argparse.Namespace) -> dict:
 
     result = {"id": cid, "expect": case.get("expect_fields", []), "got": [],
               "missing": [], "extra": [], "status": "ERROR", "error": "",
-              "emperor_fate": None, "neg": bool(case.get("neg_note"))}
+              "emperor_fate": None,
+              # neg 分支：负样本(neg_note)或任何带 neg_check_fields 的「禁抽」断言都走它
+              "neg": bool(case.get("neg_note")) or bool(case.get("neg_check_fields")),
+              "value_fails": []}
     try:
         session = GameSession(db_path, llm_config, start_ym=args.start_ym or None)
 
@@ -201,15 +269,23 @@ def run_case(case: dict, args: argparse.Namespace) -> dict:
         if result["neg"]:
             # 负样本：验「不该抽某敏感字段」。给了 neg_check_fields 则只查这些字段
             # 不在 got 即 PASS（其余联想字段无所谓）；没给则回落「全空才 PASS」。
+            # 混合断言：若同时给了 expect_fields（如「该抽 A 且不该抽 B」），
+            # 先校验正向 missing 再校验负向 violations，两者都过才 PASS。
             check = set(case.get("neg_check_fields") or [])
+            violated = sorted(check & got)
+            result["neg_violations"] = violated
+            if violated:
+                result["error"] = f"误抽敏感字段: {'、'.join(violated)}"
             if check:
-                violated = sorted(check & got)
-                result["neg_violations"] = violated
-                result["status"] = "PASS" if not violated else "FAIL"
-                if violated:
-                    result["missing"] = []  # 负样本没有 missing 概念
-                    result["error"] = f"误抽敏感字段: {'、'.join(violated)}"
+                if expect_top:
+                    # 混合：缺正向期望或误抽敏感字段，任一即 FAIL
+                    result["status"] = "PASS" if (not result["missing"] and not violated) else "FAIL"
+                else:
+                    # 纯负样本：只看 neg_check_fields 是否被误抽
+                    result["missing"] = [] if violated else result["missing"]
+                    result["status"] = "PASS" if not violated else "FAIL"
             else:
+                # 无 neg_check_fields 的纯负样本：抽出任何字段即 FAIL
                 result["status"] = "PASS" if not got else "FAIL"
         else:
             result["status"] = "PASS" if not result["missing"] else "FAIL"
@@ -221,6 +297,16 @@ def run_case(case: dict, args: argparse.Namespace) -> dict:
             if not ok:
                 result["status"] = "FAIL"
                 result["error"] = f"emperor_fate={fate!r} 期望 {want!r}"
+
+        # 深度值校验：顶层命中后核字段内部值（口径/数值/账户…）是否抽对。
+        # 字段名对但值错（如『月额设为30』错成『增减-90』）会被这里抓出降 FAIL。
+        if case.get("expect_values"):
+            vfails = _check_expect_values(case["expect_values"], extracted)
+            result["value_fails"] = vfails
+            if vfails:
+                result["status"] = "FAIL"
+                joined = "；".join(vfails)
+                result["error"] = (result["error"] + " | " if result["error"] else "") + f"值不符: {joined}"
     except Exception as exc:
         result["error"] = f"{exc}\n{traceback.format_exc()[:500]}"
     finally:

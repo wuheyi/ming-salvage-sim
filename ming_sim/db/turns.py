@@ -114,6 +114,9 @@ class _TurnsMixin:
                 UNION ALL
                 SELECT turn, year, period, 0, 0, 1 FROM turn_directives
                 WHERE status = 'issued'
+                UNION ALL
+                SELECT turn, year, period, 0, 0, 1 FROM turn_structured_directives
+                WHERE status = 'issued'
             ) AS t
             GROUP BY t.turn
             ORDER BY t.turn
@@ -326,6 +329,108 @@ class _TurnsMixin:
         ).fetchone()
         return int(row["n"]) if row else 0
 
+    def add_structured_directive(self, state: GameState, directive: Dict[str, object]) -> int:
+        cursor = self.conn.execute(
+            """
+            INSERT INTO turn_structured_directives
+            (turn, year, period, template_id, category, title, fields_json, compiled_text, settlement_hint, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft')
+            """,
+            (
+                state.turn,
+                state.year,
+                state.period,
+                str(directive.get("template_id") or ""),
+                str(directive.get("category") or ""),
+                str(directive.get("title") or ""),
+                json.dumps(directive.get("fields") or {}, ensure_ascii=False, sort_keys=True),
+                str(directive.get("compiled_text") or ""),
+                str(directive.get("settlement_hint") or ""),
+            ),
+        )
+        self.conn.commit()
+        return int(cursor.lastrowid)
+
+    def _structured_directive_payload(self, row: sqlite3.Row) -> Dict[str, object]:
+        try:
+            fields = json.loads(row["fields_json"] or "{}")
+        except Exception:
+            fields = {}
+        return {
+            "id": int(row["id"]),
+            "turn": int(row["turn"]),
+            "year": int(row["year"]),
+            "period": int(row["period"]),
+            "template_id": row["template_id"] or "",
+            "category": row["category"] or "",
+            "title": row["title"] or "",
+            "fields": fields if isinstance(fields, dict) else {},
+            "compiled_text": row["compiled_text"] or "",
+            "settlement_hint": row["settlement_hint"] or "",
+            "status": row["status"] or "",
+        }
+
+    def list_structured_directives(
+        self, state: GameState, statuses: Tuple[str, ...] = ("draft",)
+    ) -> List[Dict[str, object]]:
+        placeholders = ",".join("?" for _ in statuses)
+        rows = self.conn.execute(
+            f"""
+            SELECT * FROM turn_structured_directives
+            WHERE turn = ? AND status IN ({placeholders})
+            ORDER BY id
+            """,
+            (state.turn, *statuses),
+        ).fetchall()
+        return [self._structured_directive_payload(row) for row in rows]
+
+    def list_structured_directives_by_turn(self, turn: int) -> List[Dict[str, object]]:
+        rows = self.conn.execute(
+            """
+            SELECT * FROM turn_structured_directives
+            WHERE turn = ? AND status = 'issued'
+            ORDER BY id
+            """,
+            (int(turn),),
+        ).fetchall()
+        return [self._structured_directive_payload(row) for row in rows]
+
+    def update_structured_directive(self, directive_id: int, directive: Dict[str, object]) -> None:
+        self.conn.execute(
+            """
+            UPDATE turn_structured_directives
+            SET template_id = ?,
+                category = ?,
+                title = ?,
+                fields_json = ?,
+                compiled_text = ?,
+                settlement_hint = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND status = 'draft'
+            """,
+            (
+                str(directive.get("template_id") or ""),
+                str(directive.get("category") or ""),
+                str(directive.get("title") or ""),
+                json.dumps(directive.get("fields") or {}, ensure_ascii=False, sort_keys=True),
+                str(directive.get("compiled_text") or ""),
+                str(directive.get("settlement_hint") or ""),
+                int(directive_id),
+            ),
+        )
+        self.conn.commit()
+
+    def delete_structured_directive(self, directive_id: int) -> None:
+        self.conn.execute(
+            """
+            UPDATE turn_structured_directives
+            SET status = 'deleted', updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND status = 'draft'
+            """,
+            (int(directive_id),),
+        )
+        self.conn.commit()
+
     def update_directive_text(self, directive_id: int, text: str) -> None:
         self.conn.execute(
             """
@@ -376,6 +481,14 @@ class _TurnsMixin:
         self.conn.execute(
             """
             UPDATE turn_directives
+            SET status = 'issued', updated_at = CURRENT_TIMESTAMP
+            WHERE turn = ? AND status = 'draft'
+            """,
+            (state.turn,),
+        )
+        self.conn.execute(
+            """
+            UPDATE turn_structured_directives
             SET status = 'issued', updated_at = CURRENT_TIMESTAMP
             WHERE turn = ? AND status = 'draft'
             """,

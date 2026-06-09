@@ -484,6 +484,22 @@ class _SchemaMixin:
                 FOREIGN KEY(actor) REFERENCES characters(name)
             );
 
+            CREATE TABLE IF NOT EXISTS turn_structured_directives (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                turn INTEGER NOT NULL,
+                year INTEGER NOT NULL,
+                period INTEGER NOT NULL,
+                template_id TEXT NOT NULL,
+                category TEXT NOT NULL,
+                title TEXT NOT NULL,
+                fields_json TEXT NOT NULL,
+                compiled_text TEXT NOT NULL,
+                settlement_hint TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'draft',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE INDEX IF NOT EXISTS idx_economy_ledger_turn
             ON economy_ledger(turn, account);
 
@@ -496,6 +512,9 @@ class _SchemaMixin:
 
             CREATE INDEX IF NOT EXISTS idx_turn_directives_turn
             ON turn_directives(turn, status);
+
+            CREATE INDEX IF NOT EXISTS idx_structured_directives_turn
+            ON turn_structured_directives(turn, status);
 
             CREATE INDEX IF NOT EXISTS idx_region_logs_turn
             ON region_logs(turn, region_id);

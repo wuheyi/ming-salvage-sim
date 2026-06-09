@@ -519,7 +519,6 @@ def apply_annual_population_flows(
     support_bonus = _rate("人口民心增益_base", 4)      # 民心>60 时 +0.4%
     support_penalty = _rate("人口民心减损_base", 4)    # 民心<40 时 -0.4%
     unrest_penalty = _rate("人口动乱减损_base", 6)     # 动乱>50 时 -0.6%
-    disaster_penalty = _rate("人口灾荒减损_base", 10)  # 有天灾/人祸 -1.0%
     famine_penalty = _rate("人口饥荒减损_base", 10)    # 本年缺粮 额外 -1.0%
 
     shortfall_by_region = {
@@ -529,8 +528,7 @@ def apply_annual_population_flows(
     }
 
     rows = db.conn.execute(
-        "SELECT id, name, population, public_support, unrest, "
-        "natural_disaster, human_disaster FROM regions"
+        "SELECT id, name, population, public_support, unrest FROM regions"
     ).fetchall()
     flows: List[Dict[str, object]] = []
     for row in rows:
@@ -542,8 +540,6 @@ def apply_annual_population_flows(
 
         support = int(row["public_support"] or 0)
         unrest = int(row["unrest"] or 0)
-        natural = str(row["natural_disaster"] or "").strip()
-        human = str(row["human_disaster"] or "").strip()
         shortfall = shortfall_by_region.get(region_id, 0)
 
         rate = base_rate
@@ -553,8 +549,6 @@ def apply_annual_population_flows(
             rate -= support_penalty
         if unrest > 50:
             rate -= unrest_penalty
-        if natural or human:
-            rate -= disaster_penalty
         if shortfall > 0:
             rate -= famine_penalty
 
@@ -570,7 +564,6 @@ def apply_annual_population_flows(
         reason = (
             f"年度人口结算：增长率{rate * 100:+.1f}%"
             f"（民心{support}/动乱{unrest}"
-            f"{'/有灾' if (natural or human) else ''}"
             f"{'/缺粮' if shortfall > 0 else ''}）"
         )
         db.conn.execute(

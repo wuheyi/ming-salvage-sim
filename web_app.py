@@ -49,6 +49,10 @@ from ming_sim.context import character_context_with_db, match_minister_from_text
 from ming_sim.constants import TURN_UNIT, BUILDING_CATEGORIES
 from ming_sim.flows import calc_province_fiscal, compute_budget_lines
 from ming_sim.simulation import build_simulator_payload
+from ming_sim.directives import (
+    StructuredDirectiveError,
+    load_directive_templates,
+)
 from ming_sim.exceptions import LLMContractError  # noqa: F401  (保留：供错误处理)
 from ming_sim.models import Character, LLMConfig
 from ming_sim.registry import _BASE_SKILLS
@@ -446,6 +450,11 @@ class CourtChatSummaryRequest(BaseModel):
 class DirectiveRequest(BaseModel):
     text: str
     notes: str = ""
+
+
+class StructuredDirectiveRequest(BaseModel):
+    template_id: str
+    fields: Dict[str, Any] = Field(default_factory=dict)
 
 
 class SecretOrderRequest(BaseModel):
@@ -1265,6 +1274,7 @@ class WebGame:
                 if c.office_type == "后宫" and c.status == "active" and self.character_power_id(c) == "ming"
             ],
             "directives": directives,
+            "structured_directives": self.session.list_structured_directives(),
             "pending_count": self.session.pending_count(),
             "pending_decisions": (
                 self.session.pending_decisions()
@@ -3114,6 +3124,35 @@ async def api_create_directive(request: DirectiveRequest) -> Dict[str, Any]:
     }
 
 
+@app.get("/api/structured_directives/templates")
+async def api_structured_directive_templates() -> Dict[str, Any]:
+    return {"templates": load_directive_templates()}
+
+
+@app.post("/api/structured_directives")
+async def api_create_structured_directive(request: StructuredDirectiveRequest) -> Dict[str, Any]:
+    try:
+        get_game().session.add_structured_directive(request.template_id, request.fields)
+    except StructuredDirectiveError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    return {"structured_directives": get_game().session.list_structured_directives()}
+
+
+@app.patch("/api/structured_directives/{directive_id}")
+async def api_update_structured_directive(directive_id: int, request: StructuredDirectiveRequest) -> Dict[str, Any]:
+    try:
+        get_game().session.update_structured_directive(directive_id, request.template_id, request.fields)
+    except StructuredDirectiveError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from None
+    return {"structured_directives": get_game().session.list_structured_directives()}
+
+
+@app.delete("/api/structured_directives/{directive_id}")
+async def api_delete_structured_directive(directive_id: int) -> Dict[str, Any]:
+    get_game().session.delete_structured_directive(directive_id)
+    return {"structured_directives": get_game().session.list_structured_directives()}
+
+
 @app.patch("/api/directives/{directive_id}")
 async def api_update_directive(directive_id: int, request: DirectivePatch) -> Dict[str, Any]:
     rows = get_game().directive_rows()
@@ -3191,7 +3230,10 @@ async def api_issue_decree(body: IssueDecreeRequest = IssueDecreeRequest()) -> D
     """非流式颁诏（保留兼容）。前端默认走 /api/decree/issue/stream。"""
     game = get_game()
     was_ended = bool(game.state.ended)
-    issued_decree = bool(game.session.db.list_directives(game.state, statuses=("draft",)))
+    issued_decree = bool(
+        game.session.db.list_directives(game.state, statuses=("draft",))
+        or game.session.db.list_structured_directives(game.state, statuses=("draft",))
+    )
     try:
         result = game.session.resolve_turn(cheat_directive=body.cheat)
     except ValueError as e:
@@ -3231,7 +3273,10 @@ async def api_issue_decree_stream(body: IssueDecreeRequest = IssueDecreeRequest(
         try:
             game = get_game()
             was_ended = bool(game.state.ended)
-            issued_decree = bool(game.session.db.list_directives(game.state, statuses=("draft",)))
+            issued_decree = bool(
+                game.session.db.list_directives(game.state, statuses=("draft",))
+                or game.session.db.list_structured_directives(game.state, statuses=("draft",))
+            )
             result = game.session.resolve_turn(on_event=on_event, cheat_directive=body.cheat)
             decree = game.session.last_decree
             if result.awaiting:

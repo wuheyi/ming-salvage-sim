@@ -232,6 +232,37 @@ export type Directive = {
   authority: string;
 };
 
+export type StructuredDirectiveFieldSpec = {
+  key: string;
+  label: string;
+  type: "text" | "textarea" | "select" | "number";
+  option_source?: "armies" | "regions" | "regions_or_all" | "weapons" | "people" | "departments" | "buildings" | "taxes";
+  required?: boolean;
+  required_when?: { field: string; values: string[] };
+  placeholder?: string;
+  options?: string[];
+};
+
+export type StructuredDirectiveTemplate = {
+  id: string;
+  label: string;
+  category: string;
+  settlement_hint: string;
+  compiled_text: string;
+  fields: StructuredDirectiveFieldSpec[];
+};
+
+export type StructuredDirective = {
+  id: number;
+  template_id: string;
+  category: string;
+  title: string;
+  fields: Record<string, string>;
+  compiled_text: string;
+  settlement_hint: string;
+  status: string;
+};
+
 export type Issue = {
   id: number;
   kind: "situation" | "initiative";
@@ -367,6 +398,7 @@ export type GameState = {
   events: EventItem[];
   regions: Region[];
   armies: Army[];
+  buildings?: Building[];
   arms_stock?: ArmsStockItem[];
   departments: Department[];
   technologies: Technology[];
@@ -376,6 +408,7 @@ export type GameState = {
   archived_ministers?: Minister[];
   consorts: Minister[];
   directives: Directive[];
+  structured_directives: StructuredDirective[];
   pending_count: number;
   pending_decisions?: PendingDecision[];
   last_decree: string;

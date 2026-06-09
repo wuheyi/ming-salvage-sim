@@ -73,6 +73,35 @@ class ArmyDeltaSemanticsTests(unittest.TestCase):
 
         self.assertEqual(after, before + 5)
 
+    def test_existing_army_can_be_renamed_and_queried_by_new_name(self):
+        self.db.apply_army_deltas(
+            self.state,
+            self.event,
+            None,
+            "测试",
+            {"guanning": {"name": "忠勇关宁军", "status": "赐号改编", "reason": "赐关宁军新番号"}},
+        )
+
+        row = self.db.conn.execute(
+            "SELECT name, status FROM armies WHERE id = 'guanning'"
+        ).fetchone()
+        log = self.db.conn.execute(
+            """
+            SELECT old_value, new_value, delta
+            FROM army_logs
+            WHERE army_id = 'guanning' AND field = 'name'
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+
+        self.assertEqual(row["name"], "忠勇关宁军")
+        self.assertEqual(row["status"], "赐号改编")
+        self.assertEqual(log["old_value"], "关宁军 / 宁锦防线")
+        self.assertEqual(log["new_value"], "忠勇关宁军")
+        self.assertIsNone(log["delta"])
+        self.assertIn("忠勇关宁军", self.db.army_detail("忠勇关宁军"))
+
     def test_duplicate_new_army_does_not_merge_into_existing_army(self):
         before = self.db.conn.execute(
             "SELECT manpower FROM armies WHERE id = 'guanning'"

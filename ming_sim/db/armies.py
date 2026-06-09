@@ -20,7 +20,7 @@ from ming_sim.constants import (
 )
 from ming_sim.content import GameContent
 from ming_sim.matching import match_army_id_from_text, match_region_id_from_text
-from ming_sim.models import Event, GameState, monthly_amount, period_label
+from ming_sim.models import Army, Event, GameState, monthly_amount, period_label
 from ming_sim.token_stats import tlog
 from ming_sim.db._helpers import (
     normalize_office, infer_office_type_from_office,
@@ -110,7 +110,7 @@ class _ArmiesMixin:
         )
 
     def army_detail(self, raw_name: str) -> str:
-        army_id = match_army_id_from_text(raw_name, self.content.armies)
+        army_id = self._match_current_army_id(raw_name)
         if army_id is None:
             raise ValueError(f"未找到军队：{raw_name}")
         row = self.conn.execute("SELECT * FROM armies WHERE id = ?", (army_id,)).fetchone()
@@ -138,7 +138,16 @@ class _ArmiesMixin:
             "SELECT * FROM armies WHERE active = 1 ORDER BY owner_power='ming' DESC, theater, name"
         ).fetchall()
         if filter_names:
-            rows = [r for r in rows if r["name"] in filter_names or r["id"] in filter_names]
+            wanted_ids = {
+                matched
+                for name in filter_names
+                for matched in [self._match_current_army_id(str(name))]
+                if matched
+            }
+            rows = [
+                r for r in rows
+                if r["id"] in wanted_ids or r["name"] in filter_names or r["id"] in filter_names
+            ]
         if index_only:
             # 大臣 system 只给可查询对象名，完整欠饷/补给/士气等现值由 query_army_roster 按需查。
             own: List[str] = []
@@ -237,10 +246,17 @@ class _ArmiesMixin:
     ) -> List[Dict[str, object]]:
         changes: List[Dict[str, object]] = []
         for army_id, raw_changes in army_deltas.items():
-            row = self.conn.execute("SELECT * FROM armies WHERE id = ?", (army_id,)).fetchone()
+            lookup_id = str(army_id)
+            row = self.conn.execute("SELECT * FROM armies WHERE id = ?", (lookup_id,)).fetchone()
+            if row is None:
+                matched_id = self._match_current_army_id(lookup_id)
+                if matched_id:
+                    lookup_id = matched_id
+                    row = self.conn.execute("SELECT * FROM armies WHERE id = ?", (lookup_id,)).fetchone()
             if row is None:
                 print(f"[WARN] army_delta 引用未入库军队 '{army_id}' → 跳过")
                 continue
+            army_id = lookup_id
             reason = str(raw_changes.get("reason") or raw_changes.get("原因") or event.title).strip()[:80]
             _valid_army_fields = set(ARMY_SCORE_FIELDS + ARMY_QUANTITY_FIELDS + ARMY_TEXT_FIELDS)
             # 规范化键，便于「兵力变了但军费没给」时同比例补一笔军费增量。
@@ -364,6 +380,25 @@ class _ArmiesMixin:
             changes.extend(self._disband_if_empty(state, army_id, event, edict_id, actor, reason))
         self.conn.commit()
         return changes
+
+    def _match_current_army_id(self, raw_name: str) -> Optional[str]:
+        """按当前数据库名册匹配军队，支持运行中改番号后的新名称。"""
+        value = str(raw_name or "").strip()
+        if not value:
+            return None
+        row = self.conn.execute(
+            "SELECT id FROM armies WHERE id = ? OR name = ?",
+            (value, value),
+        ).fetchone()
+        if row is not None:
+            return str(row["id"])
+        army_objs: Dict[str, Army] = {}
+        for item in self.army_payload():
+            try:
+                army_objs[str(item["id"])] = Army(**item)
+            except TypeError:
+                continue
+        return match_army_id_from_text(value, army_objs)
 
     def _disband_if_empty(
         self,

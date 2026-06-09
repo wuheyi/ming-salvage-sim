@@ -12,7 +12,7 @@ import { ChatModal, ClosedIssuesModal, EdictModal, EndingModal, HistoryModal, Re
 import { SituationDrawer, SituationPanel } from "./components/situation";
 import { getMapIntelStyle, refreshLabelMaps, scoreTone } from "./format";
 import { forwardSteamEvents, type SteamEvent } from "./steamEvents";
-import type { AppView, ChatMessage, ClosedIssue, CourtChatMessage, CourtChatResponse, Directive, GameState, MenuStatus, Minister, ModalName, PendingDecision, SecretOrder, Suggestion } from "./types";
+import type { AppView, ChatMessage, ClosedIssue, CourtChatMessage, CourtChatResponse, Directive, GameState, MenuStatus, Minister, ModalName, PendingDecision, SecretOrder, StructuredDirective, StructuredDirectiveTemplate, Suggestion } from "./types";
 import "./styles.css";
 
 function App() {
@@ -73,6 +73,7 @@ function App() {
   const [composerHint, setComposerHint] = React.useState("");
   const [input, setInput] = React.useState("");
   const [directiveText, setDirectiveText] = React.useState("");
+  const [structuredDirectiveTemplates, setStructuredDirectiveTemplates] = React.useState<StructuredDirectiveTemplate[]>([]);
   const [editingDirectiveId, setEditingDirectiveId] = React.useState<number | null>(null);
   const [editingDirectiveText, setEditingDirectiveText] = React.useState("");
   const [decree, setDecree] = React.useState("");
@@ -108,6 +109,11 @@ function App() {
     setDecree(data.last_decree || "");
     setReport(data.last_report || "");
   }, [selectedMinister]);
+
+  const loadStructuredDirectiveTemplates = React.useCallback(async () => {
+    const data = await api<{ templates: StructuredDirectiveTemplate[] }>("/api/structured_directives/templates");
+    setStructuredDirectiveTemplates(data.templates || []);
+  }, []);
 
   const loadMinisterChat = React.useCallback(async (ministerName: string) => {
     const data = await api<{ minister: Minister; history: ChatMessage[]; suggestions: Suggestion[] }>(`/api/ministers/${encodeURIComponent(ministerName)}/chat`);
@@ -235,15 +241,17 @@ function App() {
         if (s.has_running_game) {
           setAppView("game");
           loadState().catch((err) => setError(err.message));
+          loadStructuredDirectiveTemplates().catch(() => {});
         }
       })
       .catch((err) => setError(err.message));
-  }, [refreshMenuStatus, loadState]);
+  }, [refreshMenuStatus, loadState, loadStructuredDirectiveTemplates]);
 
   const enterGameAfterMenu = React.useCallback(async () => {
     setAppView("game");
     await loadState();
-  }, [loadState]);
+    await loadStructuredDirectiveTemplates();
+  }, [loadState, loadStructuredDirectiveTemplates]);
 
   const exitToMenu = React.useCallback(async () => {
     await api("/api/menu/exit_to_menu", { method: "POST" });
@@ -798,6 +806,43 @@ function App() {
     }
   };
 
+  const saveStructuredDirective = async (
+    directive: StructuredDirective | null,
+    templateId: string,
+    fields: Record<string, string>,
+  ) => {
+    setBusy(directive ? "修改固定指令" : "新增固定指令");
+    setError("");
+    try {
+      const data = await api<{ structured_directives: StructuredDirective[] }>(
+        directive ? `/api/structured_directives/${directive.id}` : "/api/structured_directives",
+        {
+          method: directive ? "PATCH" : "POST",
+          body: JSON.stringify({ template_id: templateId, fields }),
+        },
+      );
+      setState((current) => (current ? { ...current, structured_directives: data.structured_directives } : current));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      throw err;
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const deleteStructuredDirective = async (directiveId: number) => {
+    setBusy("删除固定指令");
+    setError("");
+    try {
+      const data = await api<{ structured_directives: StructuredDirective[] }>(`/api/structured_directives/${directiveId}`, { method: "DELETE" });
+      setState((current) => (current ? { ...current, structured_directives: data.structured_directives } : current));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy("");
+    }
+  };
+
   const confirmDirective = async (directiveId: number) => {
     setBusy("核定大臣拟旨");
     setError("");
@@ -1127,8 +1172,8 @@ function App() {
           caption="密令" sub="進行中密令" onClick={() => setActiveModal("secret_orders")} />
         <CommandSlot slotKey="史册" img="史册"
           caption="史冊" sub="歷代奏報/詔書" onClick={() => setActiveModal("history")} />
-        <CommandSlot slotKey="拟诏" img="拟诏" badge={state.directives.length}
-          caption="擬詔/結束回合" sub={state.directives.length ? `${state.directives.length} 道` : "本回合"}
+        <CommandSlot slotKey="拟诏" img="拟诏" badge={state.directives.length + (state.structured_directives?.length || 0)}
+          caption="擬詔/結束回合" sub={(state.directives.length + (state.structured_directives?.length || 0)) ? `${state.directives.length + (state.structured_directives?.length || 0)} 道` : "本回合"}
           onClick={() => setActiveModal("edict")} />
       </div>
 
@@ -1294,6 +1339,7 @@ function App() {
             report={report}
             busy={busy}
             error={error}
+            structuredDirectiveTemplates={structuredDirectiveTemplates}
             onDirectiveTextChange={setDirectiveText}
             onEditingTextChange={setEditingDirectiveText}
             onCreateDirective={createDirective}
@@ -1309,6 +1355,8 @@ function App() {
             onConfirmDirective={confirmDirective}
             onRejectDirective={rejectDirective}
             onConfirmAllDirectives={confirmAllDirectives}
+            onSaveStructuredDirective={saveStructuredDirective}
+            onDeleteStructuredDirective={deleteStructuredDirective}
             onGoToCourtChat={() => { setActiveModal("none"); setDrawerOpen(true); }}
             onIssueCreated={() => loadState()}
           />

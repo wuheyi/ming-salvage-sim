@@ -145,7 +145,16 @@ TOP_LEVEL_ALIASES = {
     "密令结案": "secret_order_closes",
     "崇祯结局": "emperor_fate",
 }
+# 反译（内部英文 key → 中文顶层标签）。多个中文别名映同一英文 key 时（如
+# 密令进度/密令副作用 都 → secret_order_updates），dict 反转会取“最后写入”的别名，
+# 易把现行规范名覆盖成旧兼容名。这里显式钉死“现行规范名”，不依赖别名声明顺序。
+_CANONICAL_TOP_LABELS = {
+    "secret_order_updates": "密令进度",   # 非旧名“密令副作用”
+    "new_armies": "新建军队",             # 非旧名“建军”
+    "world_advance": "四方动向",          # 非旧名“外交态度”
+}
 TOP_LEVEL_LABELS = {value: key for key, value in TOP_LEVEL_ALIASES.items()}
+TOP_LEVEL_LABELS.update(_CANONICAL_TOP_LABELS)
 
 ITEM_FIELD_ALIASES = {
     "account": "account", "账户": "account",
@@ -363,6 +372,7 @@ def build_simulator_payload(
     debuts_this_turn: Optional[List[Dict[str, str]]] = None,
     relevant_memories: Optional[List[Dict[str, object]]] = None,
     secret_orders: Optional[List[Dict[str, object]]] = None,
+    structured_directives: Optional[List[Dict[str, object]]] = None,
 ) -> Dict[str, object]:
     active = db.list_active_issues()
     assignee_names = sorted({
@@ -440,6 +450,7 @@ def build_simulator_payload(
         "year": state.year,
         "period": state.period,
         "decree_text": decree_text,
+        "structured_directives": structured_directives or [],
         "current_state": dict(state.metrics),
         "treasury_brief": db.treasury_report(state),
         "factions_brief": db.faction_report(),
@@ -479,6 +490,7 @@ def simulate_season_with_agno(
     on_text: Optional[Callable[[str], None]] = None,
     relevant_memories: Optional[List[Dict[str, object]]] = None,
     secret_orders: Optional[List[Dict[str, object]]] = None,
+    structured_directives: Optional[List[Dict[str, object]]] = None,
 ) -> str:
     """推演 agent: 全量盘面塞 user payload，无 tool。"""
     narrative, _payload = simulate_season_with_payload(
@@ -493,6 +505,7 @@ def simulate_season_with_agno(
         on_text=on_text,
         relevant_memories=relevant_memories,
         secret_orders=secret_orders,
+        structured_directives=structured_directives,
     )
     return narrative
 
@@ -509,6 +522,7 @@ def simulate_season_with_payload(
     on_text: Optional[Callable[[str], None]] = None,
     relevant_memories: Optional[List[Dict[str, object]]] = None,
     secret_orders: Optional[List[Dict[str, object]]] = None,
+    structured_directives: Optional[List[Dict[str, object]]] = None,
     simulator_payload: Optional[Dict[str, object]] = None,
 ) -> tuple[str, Dict[str, object]]:
     """推演 agent，同时返回本次推演 user payload，供 extractor 复用缓存前缀。"""
@@ -518,6 +532,7 @@ def simulate_season_with_payload(
         debuts_this_turn=debuts_this_turn,
         relevant_memories=relevant_memories,
         secret_orders=secret_orders,
+        structured_directives=structured_directives,
     )
     raw = run_agent_stream_text(
         agent,

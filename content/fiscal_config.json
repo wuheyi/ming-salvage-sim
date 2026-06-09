@@ -1,6 +1,6 @@
 {
   "_comment": "财政科目目录（数据驱动）。base/rate 单位＝月度万两/%，全盘按月。改默认值改本文件并升 schema_version。budget_role: fixed=由 flows.compute_budget_lines 遍历按 base×rate 直接落账；dynamic=仅保留仍被公式读取的全局系数。省级田赋/辽饷/盐税/商税走 regions.fiscal，不在 fiscal_config 暴露 base/rate。account/direction/display 仅 fixed 项用于生成 budget 行。order 控制预算表展示顺序。",
-  "schema_version": 12,
+  "schema_version": 13,
   "items": [
     {"key": "田赋亩率_base", "value": 250, "kind": "base", "budget_role": "dynamic", "note": "全国民田(官民田)田赋亩率，单位毫/亩/年(两×10000)。250=0.025两/亩≈2.5分。田赋月额=官民田万亩×亩率/10000/12。省可在 fiscal.tian_fu_li 覆盖"},
     {"key": "皇庄亩率_base", "value": 380, "kind": "base", "budget_role": "dynamic", "note": "皇庄子粒银亩率，单位毫/亩/年。380=0.038两/亩≈3.8分。皇庄月额=huang_tian万亩×亩率/10000/12（两京2500万亩≈8万/月）。皇室直辖不吃 eff 折扣"},
@@ -10,7 +10,6 @@
     {"key": "人口民心增益_base",   "value": 4,  "kind": "base", "budget_role": "dynamic", "note": "民心>60时人口增长率加成，单位‰/年。4=+0.4%"},
     {"key": "人口民心减损_base",   "value": 4,  "kind": "base", "budget_role": "dynamic", "note": "民心<40时人口增长率减损，单位‰/年。4=-0.4%"},
     {"key": "人口动乱减损_base",   "value": 6,  "kind": "base", "budget_role": "dynamic", "note": "动乱>50时人口增长率减损，单位‰/年。6=-0.6%"},
-    {"key": "人口灾荒减损_base",   "value": 10, "kind": "base", "budget_role": "dynamic", "note": "本省有天灾或人祸(文本非空)时人口增长率减损，单位‰/年。10=-1.0%"},
     {"key": "人口饥荒减损_base",   "value": 10, "kind": "base", "budget_role": "dynamic", "note": "本年存粮被口粮吃成缺口(闹饥荒)时额外人口减损，单位‰/年。10=-1.0%，可叠加致负增长(饿死逃亡)"},
 
     {"key": "金花银_base",   "value": 8,   "kind": "base", "budget_role": "fixed", "account": "内库", "direction": "income", "display": "金花银", "order": 10, "note": "南方田赋折银直解内库，月额万两（史实内帑第一大来源，岁约百万两）"},

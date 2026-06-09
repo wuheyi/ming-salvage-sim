@@ -202,6 +202,7 @@ def resolve_directives(
     content=None,
     registry=None,
     cheat_directive: str = "",
+    structured_directives: Optional[List[Dict[str, object]]] = None,
 ) -> ResolveResult:
     """两段式结算 phase1（GameSession.resolve_turn 的主链）：跑固定财政 tick →
     simulator 写**一整篇**月末邸报 → 解析 HITL 决策点。数值抽取在
@@ -281,6 +282,7 @@ def resolve_directives(
         debuts_this_turn=debuts_this_turn,
         relevant_memories=relevant_memories,
         secret_orders=secret_orders_for_sim,
+        structured_directives=structured_directives or [],
     )
     simulator = create_season_simulator_agent(
         llm_config, agno_db, state=state, db=db, simulator_payload=simulator_payload
@@ -292,6 +294,7 @@ def resolve_directives(
             debuts_this_turn=debuts_this_turn,
             relevant_memories=relevant_memories,
             secret_orders=secret_orders_for_sim,
+            structured_directives=structured_directives or [],
             simulator_payload=simulator_payload,
             on_thinking=lambda c: _emit("thinking", c),
             on_text=lambda c: _emit("text", c),

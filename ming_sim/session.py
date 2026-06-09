@@ -30,6 +30,7 @@ from ming_sim.decree import (
     resolve_directives,
     write_decree_with_agno,
 )
+from ming_sim.directives import compile_structured_directive
 from ming_sim.issues import bind_content as _bind_issues
 from ming_sim.issues import sync_opening_legacies
 from ming_sim.llm_model import create_agno_db, extract_agent_text, verify_llm_available
@@ -906,6 +907,23 @@ class GameSession:
     def pending_count(self) -> int:
         return self.db.count_pending_directives(self.state)
 
+    def list_structured_directives(self) -> List[Dict[str, object]]:
+        return self.db.list_structured_directives(self.state, statuses=("draft",))
+
+    def add_structured_directive(self, template_id: str, fields: Dict[str, object]) -> Dict[str, object]:
+        directive = compile_structured_directive(template_id, fields, db=self.db)
+        directive_id = self.db.add_structured_directive(self.state, directive)
+        directive["id"] = directive_id
+        directive["status"] = "draft"
+        return directive
+
+    def update_structured_directive(self, directive_id: int, template_id: str, fields: Dict[str, object]) -> None:
+        directive = compile_structured_directive(template_id, fields, db=self.db)
+        self.db.update_structured_directive(directive_id, directive)
+
+    def delete_structured_directive(self, directive_id: int) -> None:
+        self.db.delete_structured_directive(directive_id)
+
     # ── 诏书阶段 ──────────────────────────────────────────────────────────
 
     def enter_review(self) -> None:
@@ -947,6 +965,7 @@ class GameSession:
         if self.pending_count() > 0:
             raise ValueError(f"尚有 {self.pending_count()} 道大臣拟旨待陛下核定（准/驳），不能颁诏。")
         directives = self.db.list_directives(self.state, statuses=("draft",))
+        structured_directives = self.db.list_structured_directives(self.state, statuses=("draft",))
         # 结算前先存一份：LLM 推演有可能崩，留个回滚锚点
         self.auto_save("preresolve")
         if directives:
@@ -963,6 +982,7 @@ class GameSession:
             on_event=on_event,
             content=self.content, registry=self.registry,
             cheat_directive=cheat_directive,
+            structured_directives=structured_directives,
         )
         if result.awaiting:
             # 决策点暂停：回合未推进，存 awaiting 态供刷新恢复；待 submit_decisions 续跑。

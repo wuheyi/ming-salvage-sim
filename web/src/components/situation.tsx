@@ -388,14 +388,13 @@ function AssigneePickerModal({ ministers, selected, onSelect, onClose }: {
                 {header("loyalty")}
                 {header("integrity")}
                 {header("courage")}
-                <th className="action-col"></th>
               </tr>
             </thead>
             <tbody>
               {rows.map((m) => {
                 const picked = selected === m.name;
                 return (
-                  <tr key={m.name} className={picked ? "selected" : ""} onDoubleClick={() => { onSelect(m.name); onClose(); }}>
+                  <tr key={m.name} className={picked ? "selected" : ""} onClick={() => { onSelect(m.name); onClose(); }}>
                     <td className="name-col"><b>{m.name}</b></td>
                     <td className="office-col">{m.office || m.office_type || "无职"}</td>
                     <td>{m.faction || "未载"}</td>
@@ -408,16 +407,11 @@ function AssigneePickerModal({ ministers, selected, onSelect, onClose }: {
                     <td>{m.loyalty ?? 50}</td>
                     <td>{m.integrity ?? 50}</td>
                     <td>{m.courage ?? 50}</td>
-                    <td className="action-col">
-                      <button type="button" onClick={() => { onSelect(m.name); onClose(); }}>
-                        {picked ? "已选" : "选择"}
-                      </button>
-                    </td>
                   </tr>
                 );
               })}
               {!rows.length ? (
-                <tr><td colSpan={13} className="assignee-empty">没有匹配的大臣。</td></tr>
+                <tr><td colSpan={12} className="assignee-empty">没有匹配的大臣。</td></tr>
               ) : null}
             </tbody>
           </table>

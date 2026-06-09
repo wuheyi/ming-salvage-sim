@@ -3823,6 +3823,50 @@ button:disabled {
     rgba(253, 241, 220, 0.90);
 }
 
+.directive-list-row.structured {
+  border-color: rgba(45, 105, 118, 0.30);
+  border-left-color: rgba(45, 105, 118, 0.68);
+  background:
+    linear-gradient(90deg, rgba(45, 105, 118, 0.08), transparent 38px),
+    rgba(239, 248, 247, 0.88);
+}
+
+.fixed-directive-add {
+  margin-bottom: 14px;
+}
+
+.structured-directive-editor {
+  max-width: 720px;
+}
+
+.directive-picker-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.directive-picker-field input[readonly] {
+  cursor: pointer;
+  background: rgba(255, 252, 242, 0.95);
+}
+
+.directive-picker-field button {
+  padding: 8px 12px;
+  border: 1px solid rgba(98, 70, 34, 0.25);
+  border-radius: 6px;
+  background: rgba(255, 252, 242, 0.9);
+  color: #6d3b24;
+  font-family: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.directive-picker-field button.ghost {
+  color: #806d58;
+  background: rgba(255, 255, 255, 0.72);
+}
+
 .directive-list-row.selected {
   align-items: start;
   border-color: rgba(128, 86, 42, 0.38);
@@ -5511,7 +5555,7 @@ button:disabled {
 .assignee-picker-layer {
   position: fixed;
   inset: 0;
-  z-index: 2200;
+  z-index: 10020;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -5597,6 +5641,14 @@ button:disabled {
   border-collapse: collapse;
   font-size: 0.78rem;
 }
+
+.directive-object-table {
+  min-width: 720px;
+}
+
+.directive-object-picker {
+  width: min(980px, calc(100vw - 48px));
+}
 .assignee-picker-table th,
 .assignee-picker-table td {
   padding: 8px 9px;
@@ -5619,7 +5671,7 @@ button:disabled {
   cursor: pointer;
 }
 .assignee-picker-table tbody tr {
-  cursor: default;
+  cursor: pointer;
 }
 .assignee-picker-table tbody tr:hover,
 .assignee-picker-table tbody tr.selected {

@@ -1,0 +1,106 @@
+[
+  {
+    "id": "military_dispatch",
+    "label": "调度军队",
+    "category": "军务",
+    "settlement_hint": "一次性军队调动；写清军队名、目标地点与行动，不为调动本身新立长期局势。",
+    "compiled_text": "调度军队：命{army}即行{action}，目标为{target}。{note}",
+    "fields": [
+      {"key": "army", "label": "军队", "type": "select", "option_source": "armies", "required": true, "placeholder": "选择军队"},
+      {"key": "action", "label": "行动", "type": "select", "required": true, "options": ["移防", "驰援", "驻守", "出击", "撤回", "整训", "追剿"]},
+      {"key": "target", "label": "目标地点/战区", "type": "select", "option_source": "regions", "required": true, "placeholder": "选择地区"},
+      {"key": "note", "label": "备注", "type": "textarea", "required": false, "placeholder": "补充粮饷、主将、协同等"}
+    ]
+  },
+  {
+    "id": "arms_dispatch",
+    "label": "军备调度",
+    "category": "军务",
+    "settlement_hint": "一次性军备实物拨发；写清型号、数量、来源与受拨军队。",
+    "compiled_text": "军备调度：从{source}拨发{weapon}{quantity}予{recipient}，用途/要求：{purpose}。{note}",
+    "fields": [
+      {"key": "source", "label": "来源", "type": "select", "required": true, "options": ["军备总库"]},
+      {"key": "weapon", "label": "武器型号", "type": "select", "option_source": "weapons", "required": true, "placeholder": "选择武器"},
+      {"key": "quantity", "label": "数量", "type": "text", "required": true, "placeholder": "如：二十门"},
+      {"key": "recipient", "label": "受拨军队", "type": "select", "option_source": "armies", "required": true, "placeholder": "选择军队"},
+      {"key": "purpose", "label": "用途/要求", "type": "text", "required": false, "placeholder": "如：守山海关城防"},
+      {"key": "note", "label": "备注", "type": "textarea", "required": false}
+    ]
+  },
+  {
+    "id": "money_grain_transfer",
+    "label": "钱粮调拨",
+    "category": "财政",
+    "settlement_hint": "一次性钱粮调拨；必须写源、目标、金额/粮数，按源与目标落账。",
+    "compiled_text": "钱粮调拨：由{source}拨往{target}，银两{silver}，粮草{grain}，用途：{purpose}。查核要求：{audit}。{note}",
+    "fields": [
+      {"key": "source", "label": "来源", "type": "select", "required": true, "options": ["国库", "内库"]},
+      {"key": "target", "label": "目标", "type": "text", "required": true, "placeholder": "如：辽东军饷 / 某省赈济 / 某军军饷"},
+      {"key": "silver", "label": "银两", "type": "text", "required": false, "placeholder": "如：十万两"},
+      {"key": "grain", "label": "粮草", "type": "text", "required": false, "placeholder": "如：五万石"},
+      {"key": "purpose", "label": "用途", "type": "text", "required": true, "placeholder": "如：补发欠饷"},
+      {"key": "audit", "label": "查核要求", "type": "text", "required": false, "placeholder": "如：户部月底核销"},
+      {"key": "note", "label": "备注", "type": "textarea", "required": false}
+    ]
+  },
+  {
+    "id": "tax_reform",
+    "label": "财政科目改革",
+    "category": "财政",
+    "settlement_hint": "财政科目改革通常是长期事项；省级科目必须选全国或某省，全国科目不用选地区。",
+    "compiled_text": "财政科目改革：对{scope}的{tax_type}施行{action}，幅度为{rate}。查核要求：{audit}。{note}",
+    "fields": [
+      {"key": "tax_type", "label": "财政科目", "type": "select", "option_source": "taxes", "required": true, "placeholder": "选择财政科目"},
+      {"key": "action", "label": "动作", "type": "select", "required": true, "options": ["加征", "减征", "罢废", "清丈", "改折", "整顿", "新设", "调整基准", "调整实收率/实发率"]},
+      {"key": "rate", "label": "幅度", "type": "text", "required": false, "placeholder": "如：减三成"},
+      {"key": "scope", "label": "范围", "type": "select", "option_source": "regions_or_all", "required_when": {"field": "tax_type", "values": ["田赋", "辽饷", "盐税", "商税", "人头税"]}, "placeholder": "选择全国或某省"},
+      {"key": "audit", "label": "查核要求", "type": "text", "required": false},
+      {"key": "note", "label": "备注", "type": "textarea", "required": false}
+    ]
+  },
+  {
+    "id": "personnel_change",
+    "label": "人物任免",
+    "category": "人事",
+    "settlement_hint": "一次性任免动作；从现有人物中选择，独占实职需写原任去向。",
+    "compiled_text": "人物任免：{action}{person}，授/改任{office}，承办/去向：{destination}，理由：{reason}。{note}",
+    "fields": [
+      {"key": "person", "label": "人物", "type": "select", "option_source": "people", "required": true, "placeholder": "选择人物"},
+      {"key": "action", "label": "动作", "type": "select", "required": true, "options": ["起复", "任命", "升迁", "调任", "罢黜", "下狱", "致仕"]},
+      {"key": "office", "label": "官职", "type": "text", "required": false, "placeholder": "如：礼部尚书兼东阁大学士"},
+      {"key": "office_type", "label": "部门/官署", "type": "select", "option_source": "departments", "required": false, "placeholder": "选择部门"},
+      {"key": "destination", "label": "承办/去向", "type": "text", "required": false},
+      {"key": "reason", "label": "理由", "type": "text", "required": false},
+      {"key": "note", "label": "备注", "type": "textarea", "required": false}
+    ]
+  },
+  {
+    "id": "person_recruitment",
+    "label": "人物招募",
+    "category": "人事",
+    "settlement_hint": "一次性招募新人；玩家自行填写姓名、出身来历、拟授官职与召募理由。",
+    "compiled_text": "人物招募：召募{person}，拟授{office}，部门/官署：{office_type}，来历/去向：{destination}，理由：{reason}。{note}",
+    "fields": [
+      {"key": "person", "label": "姓名/称谓", "type": "text", "required": true, "placeholder": "如：徐光启门人某 / 江南通晓火器者"},
+      {"key": "office", "label": "拟授官职", "type": "text", "required": false, "placeholder": "如：工部军器局主事"},
+      {"key": "office_type", "label": "部门/官署", "type": "select", "option_source": "departments", "required": false, "placeholder": "选择部门"},
+      {"key": "destination", "label": "来历/去向", "type": "text", "required": false, "placeholder": "如：召入京师候用"},
+      {"key": "reason", "label": "理由", "type": "text", "required": false},
+      {"key": "note", "label": "备注", "type": "textarea", "required": false}
+    ]
+  },
+  {
+    "id": "consort_selection",
+    "label": "选妃",
+    "category": "后宫",
+    "settlement_hint": "后宫册封/选妃动作；写清候选人或范围、动作、位号与礼制承办。",
+    "compiled_text": "选妃：从{scope}中{action}，位号/安排为{rank}，礼制承办要求：{protocol}。{note}",
+    "fields": [
+      {"key": "scope", "label": "候选人/范围", "type": "text", "required": true, "placeholder": "如：本次采选秀女 / 江南良家女 / 某氏"},
+      {"key": "action", "label": "动作", "type": "select", "required": true, "options": ["遴选", "册封", "留牌", "遣归", "晋封"]},
+      {"key": "rank", "label": "位号/安排", "type": "text", "required": false, "placeholder": "如：贵妃"},
+      {"key": "protocol", "label": "礼制要求", "type": "text", "required": false, "placeholder": "如：礼部会同司礼监办理册礼"},
+      {"key": "note", "label": "备注", "type": "textarea", "required": false}
+    ]
+  }
+]

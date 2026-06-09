@@ -1,11 +1,12 @@
 import React from "react";
-import { Check, Crown, Edit3, Landmark, Loader2, Lock, MessageSquare, ScrollText, Send, Star, Trash2, Undo2, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Check, Crown, Edit3, Landmark, Loader2, Lock, MessageSquare, Plus, ScrollText, Send, Star, Trash2, Undo2, X } from "lucide-react";
 import { api } from "../api";
 import { ExtractionView } from "./extraction";
 import { FullscreenModal, MinisterPortrait, cacheBust } from "./hud";
 import { formatClosedEffect } from "../format";
 import { ManualIssueEditor } from "./situation";
-import type { ChatDisplayMessage, ChatMessage, ClosedIssue, Directive, EndingPayload, GameState, HistoryDetail, HistoryTurnItem, Minister, SecretOrder, Suggestion } from "../types";
+import type { ChatDisplayMessage, ChatMessage, ClosedIssue, Directive, EndingPayload, GameState, HistoryDetail, HistoryTurnItem, Minister, SecretOrder, StructuredDirective, StructuredDirectiveTemplate, Suggestion } from "../types";
 
 const PROGRESS_LEVEL_CN: Record<string, string> = {
   verygood: "大进",
@@ -790,6 +791,7 @@ export function EdictModal({
   report,
   busy,
   error,
+  structuredDirectiveTemplates,
   onDirectiveTextChange,
   onEditingTextChange,
   onCreateDirective,
@@ -805,6 +807,8 @@ export function EdictModal({
   onConfirmDirective,
   onRejectDirective,
   onConfirmAllDirectives,
+  onSaveStructuredDirective,
+  onDeleteStructuredDirective,
   onGoToCourtChat,
   onIssueCreated,
 }: {
@@ -817,6 +821,7 @@ export function EdictModal({
   report: string;
   busy: string;
   error: string;
+  structuredDirectiveTemplates: StructuredDirectiveTemplate[];
   onDirectiveTextChange: (value: string) => void;
   onEditingTextChange: (value: string) => void;
   onCreateDirective: () => void;
@@ -832,15 +837,19 @@ export function EdictModal({
   onConfirmDirective: (directiveId: number) => void;
   onRejectDirective: (directiveId: number) => void;
   onConfirmAllDirectives: () => void;
+  onSaveStructuredDirective: (directive: StructuredDirective | null, templateId: string, fields: Record<string, string>) => Promise<void>;
+  onDeleteStructuredDirective: (directiveId: number) => void;
   onGoToCourtChat: () => void;
   onIssueCreated: () => void | Promise<void>;
 }) {
   const pendingDirectives = React.useMemo(() => state.directives.filter((d) => d.status === "pending"), [state.directives]);
   const draftDirectives = React.useMemo(() => state.directives.filter((d) => d.status !== "pending"), [state.directives]);
   const allDirectives = React.useMemo(() => [...pendingDirectives, ...draftDirectives], [pendingDirectives, draftDirectives]);
+  const structuredDirectives = state.structured_directives || [];
   const hasPending = pendingDirectives.length > 0;
   const [decreeDraft, setDecreeDraft] = React.useState(decree);
   const [dialogDirectiveId, setDialogDirectiveId] = React.useState<number | null>(null);
+  const [structuredEditorTarget, setStructuredEditorTarget] = React.useState<StructuredDirective | null | undefined>(undefined);
   const [issueEditorOpen, setIssueEditorOpen] = React.useState(false);
   const decreeIssueCount = React.useMemo(
     () => (state.issues || []).filter((i) => (i.origin_kind === "decree" || (!i.origin_kind && i.is_manual)) && (i.kind === "situation" || i.kind === "initiative")).length,
@@ -942,7 +951,7 @@ export function EdictModal({
       <div className="desk-columns">
         <section className="desk-pane desk-memorials">
           <div className="directive-list-head">
-            <h2>本月指令{allDirectives.length ? ` · ${allDirectives.length} 道` : ""}</h2>
+            <h2>本月指令{(allDirectives.length + structuredDirectives.length) ? ` · ${allDirectives.length + structuredDirectives.length} 道` : ""}</h2>
             {pendingDirectives.length > 1 && (
               <button className="vermilion-yes pending-confirm-all" onClick={onConfirmAllDirectives} disabled={!!busy}>
                 <Check size={14} />全部准奏
@@ -950,6 +959,24 @@ export function EdictModal({
             )}
           </div>
           <div className="directive-list">
+            {structuredDirectives.map((directive) => (
+              <div className="directive-list-row structured" key={`structured-${directive.id}`}>
+                <button
+                  type="button"
+                  className="directive-list-main"
+                  onClick={() => setStructuredEditorTarget(directive)}
+                >
+                  <span className="directive-list-no">令#{directive.id}</span>
+                  <span className="directive-list-text">{directive.compiled_text}</span>
+                  <span className="directive-list-status draft">指令</span>
+                  <span className="directive-list-source">{directive.category || directive.title}</span>
+                </button>
+                <div className="directive-list-actions">
+                  <button onClick={() => setStructuredEditorTarget(directive)} disabled={!!busy}><Edit3 size={14} />改</button>
+                  <button onClick={() => onDeleteStructuredDirective(directive.id)} disabled={!!busy}><Trash2 size={14} />删</button>
+                </div>
+              </div>
+            ))}
             {allDirectives.map((directive) => (
               directive.status === "pending" ? (
                 <div className={`directive-list-row pending${dialogDirectiveId === directive.id ? " selected" : ""}`} key={directive.id}>
@@ -987,7 +1014,7 @@ export function EdictModal({
                 </div>
               )
             ))}
-            {!allDirectives.length && (
+            {!allDirectives.length && !structuredDirectives.length && (
               <div className="empty-note">
                 无新指令。本月可直接结算，由各局势承办人照前旨推进{assignedActiveIssueCount ? ` · ${assignedActiveIssueCount} 件有承办` : ""}。
               </div>
@@ -996,6 +1023,10 @@ export function EdictModal({
         </section>
 
         <section className="desk-pane desk-compose">
+          <h2>固定指令</h2>
+          <button className="desk-add-btn fixed-directive-add" onClick={() => setStructuredEditorTarget(null)} disabled={!!busy || !structuredDirectiveTemplates.length}>
+            <Plus size={14} />新增固定指令
+          </button>
           <h2>御笔自拟</h2>
           <textarea
             value={directiveText}
@@ -1011,11 +1042,11 @@ export function EdictModal({
               className="desk-add-issue-btn"
               onClick={() => setIssueEditorOpen(true)}
               disabled={!!busy || decreeIssueFull}
-              title={decreeIssueFull ? `decree 局势已达上限（${maxDecreeIssues}），可在主菜单游戏设置调高` : "另立一条可追踪的手动局势"}
+              title={decreeIssueFull ? `decree 局势已达上限（${maxDecreeIssues}），可在主菜单游戏设置调高` : "新建一条可追踪的长期圣旨/局势"}
             >
-              <Landmark size={14} />＋ 新建局势
+              <Landmark size={14} />＋ 固定长期圣旨
             </button>
-            <small className="desk-manual-issue-hint">decree 局势 {decreeIssueCount} / {maxDecreeIssues} · 手动新增仅记目标</small>
+            <small className="desk-manual-issue-hint">本质即新建局势 · {decreeIssueCount} / {maxDecreeIssues}</small>
           </div>
           {busy && <div className="busy-line"><Loader2 size={15} />{busy}...</div>}
           {error && <div className="error-line" role="alert">{error}</div>}
@@ -1065,6 +1096,19 @@ export function EdictModal({
         />
       ) : null}
 
+      {structuredEditorTarget !== undefined ? (
+        <StructuredDirectiveEditor
+          editing={structuredEditorTarget}
+          templates={structuredDirectiveTemplates}
+          state={state}
+          onClose={() => setStructuredEditorTarget(undefined)}
+          onSaved={async (editing, templateId, fields) => {
+            await onSaveStructuredDirective(editing, templateId, fields);
+            setStructuredEditorTarget(undefined);
+          }}
+        />
+      ) : null}
+
       <div className="desk-footer">
         {hasPending && <small className="pending-hint">尚有 {pendingDirectives.length} 道大臣拟旨待朱批（准/驳），核定后方可结算。</small>}
         <button className="seal-btn-ghost" onClick={onGoToCourtChat} disabled={!!busy}>
@@ -1074,12 +1118,364 @@ export function EdictModal({
           className="seal-btn-compose"
           onClick={draftDirectives.length ? onWriteDecree : onIssueDecree}
           disabled={!!busy || hasPending}
-          title={draftDirectives.length ? "拟写正式诏书" : "无新诏，结算本月承办推进"}
+          title={draftDirectives.length ? "拟写正式诏书" : structuredDirectives.length ? "无新诏，按固定指令结算本月" : "无新诏，结算本月承办推进"}
         >
-          {draftDirectives.length ? "拟诏 →" : "结束本月"}
+          {draftDirectives.length ? "拟诏 →" : structuredDirectives.length ? "核销指令 →" : "结束本月"}
         </button>
       </div>
     </div>
+  );
+}
+
+
+function StructuredDirectiveEditor({
+  editing,
+  templates,
+  state,
+  onClose,
+  onSaved,
+}: {
+  editing: StructuredDirective | null;
+  templates: StructuredDirectiveTemplate[];
+  state: GameState;
+  onClose: () => void;
+  onSaved: (editing: StructuredDirective | null, templateId: string, fields: Record<string, string>) => Promise<void>;
+}) {
+  const initialTemplateId = editing?.template_id || templates[0]?.id || "";
+  const [templateId, setTemplateId] = React.useState(initialTemplateId);
+  const [fields, setFields] = React.useState<Record<string, string>>(() => editing?.fields || {});
+  const [pickerFieldKey, setPickerFieldKey] = React.useState<string>("");
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const template = templates.find((t) => t.id === templateId) || templates[0] || null;
+  const isFieldRequired = React.useCallback((field: StructuredDirectiveTemplate["fields"][number]) => {
+    if (field.required) return true;
+    const cond = field.required_when;
+    if (!cond) return false;
+    return (cond.values || []).includes(fields[cond.field] || "");
+  }, [fields]);
+  const isFieldVisible = React.useCallback((field: StructuredDirectiveTemplate["fields"][number]) => {
+    if (template?.id === "tax_reform" && field.key === "scope") {
+      return REGIONAL_FISCAL_LINES.has(fields.tax_type || "");
+    }
+    return true;
+  }, [fields.tax_type, template?.id]);
+
+  React.useEffect(() => {
+    if (!template) return;
+    setFields((current) => {
+      const next: Record<string, string> = {};
+      for (const field of template.fields || []) {
+        next[field.key] = current[field.key] || "";
+      }
+      return next;
+    });
+  }, [template?.id]);
+
+  React.useEffect(() => {
+    if (template?.id !== "tax_reform") return;
+    if (!fields.tax_type || REGIONAL_FISCAL_LINES.has(fields.tax_type)) return;
+    if (!fields.scope) return;
+    setFields((current) => ({ ...current, scope: "" }));
+  }, [fields.scope, fields.tax_type, template?.id]);
+
+  const save = async () => {
+    if (!template) {
+      setErr("没有可用模板");
+      return;
+    }
+    for (const field of template.fields || []) {
+      if (!isFieldVisible(field)) continue;
+      if (isFieldRequired(field) && !String(fields[field.key] || "").trim()) {
+        setErr(`字段「${field.label}」不能为空`);
+        return;
+      }
+    }
+    setBusy(true);
+    setErr("");
+    try {
+      await onSaved(editing, template.id, fields);
+    } catch (e: any) {
+      setErr(e?.message || "保存失败");
+      setBusy(false);
+    }
+  };
+  const pickerField = template?.fields.find((field) => field.key === pickerFieldKey) || null;
+
+  return createPortal(
+    <div className="situation-detail-backdrop" onClick={onClose}>
+      <div className="situation-detail manual-issue-editor structured-directive-editor" onClick={(e) => e.stopPropagation()}>
+        <div className="situation-detail-head">
+          <span>{editing ? "编辑固定指令" : "新建固定指令"}</span>
+          <button className="situation-detail-close" onClick={onClose} aria-label="关闭">×</button>
+        </div>
+        <div className="manual-issue-form">
+          {err ? <div className="manual-issue-err">{err}</div> : null}
+          <label>
+            指令类型
+            <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} disabled={!!editing}>
+              {templates.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+            {template?.settlement_hint ? <small className="manual-issue-hint">{template.settlement_hint}</small> : null}
+          </label>
+          {template?.fields.map((field) => {
+            if (!isFieldVisible(field)) return null;
+            const clearField = () => setFields((cur) => ({
+              ...cur,
+              [field.key]: "",
+              ...(template.id === "tax_reform" && field.key === "tax_type" ? { scope: "" } : {}),
+            }));
+            return (
+              <label key={field.key}>
+                {field.label}{isFieldRequired(field) ? " *" : ""}
+                {field.type === "textarea" ? (
+                  <textarea
+                    rows={3}
+                    value={fields[field.key] || ""}
+                    placeholder={field.placeholder || ""}
+                    onChange={(e) => setFields((cur) => ({ ...cur, [field.key]: e.target.value }))}
+                  />
+                ) : field.option_source ? (
+                  <div className="directive-picker-field">
+                    <input
+                      type="text"
+                      value={fields[field.key] || ""}
+                      placeholder={field.placeholder || ""}
+                      readOnly
+                      onClick={() => setPickerFieldKey(field.key)}
+                    />
+                    <button type="button" onClick={() => setPickerFieldKey(field.key)}>选择</button>
+                    {fields[field.key] ? <button type="button" className="ghost" onClick={clearField}>清空</button> : null}
+                  </div>
+                ) : field.type === "select" ? (
+                  <select value={fields[field.key] || ""} onChange={(e) => setFields((cur) => ({ ...cur, [field.key]: e.target.value }))}>
+                    <option value="">请选择</option>
+                    {(field.options || []).map((option) => <option key={option} value={option}>{option}</option>)}
+                  </select>
+                ) : (
+                  <input
+                    type={field.type === "number" ? "number" : "text"}
+                    value={fields[field.key] || ""}
+                    placeholder={field.placeholder || ""}
+                    onChange={(e) => setFields((cur) => ({ ...cur, [field.key]: e.target.value }))}
+                  />
+                )}
+              </label>
+            );
+          })}
+          <div className="manual-issue-actions">
+            <button onClick={onClose} disabled={busy}>取消</button>
+            <button className="primary" onClick={save} disabled={busy}>{busy ? "保存中…" : "保存"}</button>
+          </div>
+        </div>
+        {pickerField ? (
+          <DirectiveObjectPicker
+            field={pickerField}
+            state={state}
+            selected={fields[pickerField.key] || ""}
+            onSelect={(value) => setFields((cur) => ({
+              ...cur,
+              [pickerField.key]: value,
+              ...(template?.id === "tax_reform" && pickerField.key === "tax_type" && !REGIONAL_FISCAL_LINES.has(value) ? { scope: "" } : {}),
+            }))}
+            onClose={() => setPickerFieldKey("")}
+          />
+        ) : null}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+type PickerRow = {
+  value: string;
+  cells: string[];
+  search: string;
+};
+
+const REGIONAL_FISCAL_LINES = new Set(["田赋", "辽饷", "盐税", "商税", "人头税"]);
+function fiscalScopeKind(name: string): "regional" | "national" {
+  if (REGIONAL_FISCAL_LINES.has(name)) return "regional";
+  return "national";
+}
+
+function fiscalScopeLabel(name: string): string {
+  const kind = fiscalScopeKind(name);
+  if (kind === "regional") return "省级";
+  return "全国";
+}
+
+function directivePickerRows(field: StructuredDirectiveTemplate["fields"][number], state: GameState): { headers: string[]; rows: PickerRow[]; empty: string } {
+  const source = field.option_source || "";
+  const mingRegionIds = new Set((state.regions || []).filter((region) => (region.controlled_by || "ming") === "ming").map((region) => region.id));
+  if (source === "armies") {
+    const armies = (state.armies || []).filter((army) => (army.owner_power || "ming") === "ming");
+    return {
+      headers: ["军队", "驻地", "战区", "统帅", "兵力", "士气"],
+      rows: armies.map((army) => ({
+        value: army.name,
+        cells: [army.name, army.station, army.theater, army.commander, String(army.manpower), String(army.morale)],
+        search: [army.name, army.station, army.theater, army.commander, army.troop_type].join(" "),
+      })),
+      empty: "没有可调度的大明军队。",
+    };
+  }
+  if (source === "regions" || source === "regions_or_all") {
+    const regionRows = (state.regions || []).filter((region) => (region.controlled_by || "ming") === "ming").map((region) => ({
+      value: region.name,
+      cells: [region.name, region.kind, String(region.population), String(region.public_support), String(region.unrest), region.status],
+      search: [region.name, region.kind, region.status, region.natural_disaster, region.human_disaster].join(" "),
+    }));
+    return {
+      headers: ["地区", "类型", "人口", "民心", "民变", "状态"],
+      rows: source === "regions_or_all"
+        ? [{ value: "全国", cells: ["全国", "范围", "-", "-", "-", "全部地区"], search: "全国" }, ...regionRows]
+        : regionRows,
+      empty: "没有可选的大明辖治地区。",
+    };
+  }
+  if (source === "weapons") {
+    const weapons = (state.arms_stock || []).filter((weapon) => weapon.unlocked && weapon.qty > 0);
+    return {
+      headers: ["武器", "品阶", "库存", "前置科技"],
+      rows: weapons.map((weapon) => ({
+        value: weapon.name,
+        cells: [weapon.name, weapon.tier, String(weapon.qty), weapon.requires_tech || "-"],
+        search: [weapon.name, weapon.tier, weapon.requires_tech].join(" "),
+      })),
+      empty: "没有可拨武器：未解锁或库存为 0 的型号不会出现在军备调度里。",
+    };
+  }
+  if (source === "people") {
+    const people = [...(state.ministers || []), ...(state.archived_ministers || []), ...(state.consorts || [])]
+      .filter((person) => (person.power_id || "ming") === "ming");
+    return {
+      headers: ["人物", "官职/位号", "类别", "派系", "状态"],
+      rows: people.map((person) => ({
+        value: person.name,
+        cells: [person.name, person.office || person.office_type || "-", person.office_type || "-", person.faction || "-", person.status_label || person.status],
+        search: [person.name, person.office, person.office_type, person.faction, person.status_label].join(" "),
+      })),
+      empty: "没有可选的大明人物。",
+    };
+  }
+  if (source === "buildings") {
+    const buildings = (state.buildings || []).filter((building) => mingRegionIds.has(building.region_id));
+    return {
+      headers: ["建筑", "地区", "类别", "等级", "状态"],
+      rows: buildings.map((building) => {
+        const regionName = (state.regions || []).find((region) => region.id === building.region_id)?.name || building.region_id;
+        return {
+          value: building.name,
+          cells: [building.name, regionName, building.category, String(building.level), building.status],
+          search: [building.name, regionName, building.category, building.status].join(" "),
+        };
+      }),
+      empty: "没有可选的大明辖内建筑。",
+    };
+  }
+  if (source === "departments") {
+    const base = ["内阁", "吏部", "户部", "礼部", "兵部", "刑部", "工部", "司礼监", "锦衣卫", "东厂", "边镇", "后宫"];
+    const seen = new Set<string>();
+    const rows: PickerRow[] = [];
+    for (const name of base) {
+      seen.add(name);
+      rows.push({ value: name, cells: [name, "官署", "-", "-"], search: name });
+    }
+    for (const dept of state.departments || []) {
+      if (seen.has(dept.name)) continue;
+      rows.push({
+        value: dept.name,
+        cells: [dept.name, "已设衙门", dept.authority_scope || "-", String(dept.power ?? "-")],
+        search: [dept.name, dept.authority_scope].join(" "),
+      });
+    }
+    return { headers: ["部门", "类型", "职权", "权力"], rows, empty: "没有可选部门。" };
+  }
+  if (source === "taxes") {
+    const rows: PickerRow[] = [];
+    const add = (name: string, kind: string, account: string, note: string) => {
+      if (rows.some((row) => row.value === name)) return;
+      const scope = fiscalScopeLabel(name);
+      rows.push({ value: name, cells: [name, kind, scope, account, note], search: [name, kind, scope, account, note].join(" ") });
+    };
+    add("田赋", "动态收入", "国库", "按本省官民田与亩率计算");
+    add("辽饷", "动态收入", "国库", "按本省官民田摊派");
+    add("盐税", "动态收入", "国库", "按本省盐课基数计算");
+    add("商税", "动态收入", "国库", "按本省商税基数计算");
+    add("人头税", "动态收入", "国库", "按本省人口与税率计算");
+    add("皇庄", "动态收入", "内库", "全国科目，按皇庄地租与收益率汇总");
+    for (const accountName of ["国库", "内库"] as const) {
+      const account = state.budget?.[accountName];
+      for (const item of [...(account?.income || []), ...(account?.expense || [])]) {
+        if (!item.base_key || !item.rate_key) continue;
+        add(item.name, "固定财政科目", accountName, item.note || item.formula || "");
+      }
+    }
+    return { headers: ["财政科目", "类型", "范围", "账户", "说明"], rows, empty: "没有可选财政科目。" };
+  }
+  return { headers: ["名称"], rows: [], empty: "没有可选项。" };
+}
+
+function DirectiveObjectPicker({
+  field,
+  state,
+  selected,
+  onSelect,
+  onClose,
+}: {
+  field: StructuredDirectiveTemplate["fields"][number];
+  state: GameState;
+  selected: string;
+  onSelect: (value: string) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = React.useState("");
+  const { headers, rows, empty } = React.useMemo(() => directivePickerRows(field, state), [field, state]);
+  const visible = React.useMemo(() => {
+    const q = query.trim();
+    return rows.filter((row) => !q || row.search.includes(q) || row.cells.some((cell) => cell.includes(q)));
+  }, [rows, query]);
+  return createPortal(
+    <div className="assignee-picker-layer" role="dialog" aria-modal="true" aria-label={`选择${field.label}`}>
+      <div className="assignee-picker-scrim" onClick={onClose} />
+      <section className="assignee-picker directive-object-picker">
+        <header className="assignee-picker-head">
+          <div>
+            <h2>选择{field.label}</h2>
+            <span>共 {visible.length} 项</span>
+          </div>
+          <button type="button" className="assignee-picker-close" onClick={onClose}>×</button>
+        </header>
+        <div className="assignee-picker-tools">
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`搜索${field.label}`} autoFocus />
+          <button type="button" onClick={() => { onSelect(""); onClose(); }}>清空</button>
+        </div>
+        <div className="assignee-picker-table-wrap">
+          <table className="assignee-picker-table directive-object-table">
+            <thead>
+              <tr>
+                {headers.map((header) => <th key={header}>{header}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((row) => {
+                const picked = selected === row.value;
+                return (
+                  <tr key={row.value} className={picked ? "selected" : ""} onClick={() => { onSelect(row.value); onClose(); }}>
+                    {row.cells.map((cell, idx) => <td key={idx} className={idx === 0 ? "name-col" : ""}>{idx === 0 ? <b>{cell}</b> : cell}</td>)}
+                  </tr>
+                );
+              })}
+              {!visible.length ? (
+                <tr><td colSpan={headers.length} className="assignee-empty">{empty}</td></tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>,
+    document.body,
   );
 }
 

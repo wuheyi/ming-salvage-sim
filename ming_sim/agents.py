@@ -470,6 +470,7 @@ def build_simulator_context(simulator_payload: Optional[Dict[str, object]]) -> s
         "active_issues",
         "candidate_events",
         "decree_text",
+        "structured_directives",
         "deaths_this_turn",
         "debuts_this_turn",
         "relevant_memories",

@@ -173,6 +173,7 @@ const createWindow = async (port) => {
     minWidth: 1100,
     minHeight: 720,
     backgroundColor: "#160f0a",
+    icon: path.join(__dirname, "..", "build", os.platform() === "win32" ? "icon.ico" : "icon.png"),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),

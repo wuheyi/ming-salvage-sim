@@ -159,7 +159,26 @@ class _RegionsMixin:
         region_deltas: Dict[str, Dict[str, object]],
     ) -> List[Dict[str, object]]:
         changes: List[Dict[str, object]] = []
+        # 特殊 key「全国/__all__」：玩家不分省的商税/盐税加征减征，按各省现有占比摊到每省 fiscal。
+        _NATIONWIDE_KEYS = {"全国", "__all__", "all", "nationwide"}
+        _NATIONWIDE_FIELD_STEM = {"commerce_tax": "商税", "salt_tax": "盐税",
+                                  "商税基数": "商税", "盐税基数": "盐税"}
         for region_id, raw_changes in region_deltas.items():
+            if str(region_id).strip() in _NATIONWIDE_KEYS:
+                reason = str(raw_changes.get("reason") or raw_changes.get("原因") or event.title).strip()[:80]
+                for raw_field, value in raw_changes.items():
+                    stem = _NATIONWIDE_FIELD_STEM.get(str(raw_field).strip())
+                    if stem is None:
+                        continue  # 全国 key 只摊商税/盐税绝对额；其余字段需具体省份，忽略
+                    try:
+                        delta = int(value)
+                    except (TypeError, ValueError):
+                        continue
+                    touched = self.apply_dynamic_fiscal_delta(stem, delta)
+                    if touched:
+                        changes.append({"region_id": "全国", "field": stem,
+                                        "delta": delta, "touched": touched, "reason": reason})
+                continue
             row = self.conn.execute("SELECT * FROM regions WHERE id = ?", (region_id,)).fetchone()
             if row is None:
                 print(f"[WARN] region_delta 引用未入库地区 '{region_id}' → 跳过")

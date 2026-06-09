@@ -3,8 +3,14 @@ import unittest
 
 from ming_sim.content import GameContent
 from ming_sim.db import GameDB
-from ming_sim.flows import calc_province_fiscal, compute_budget_lines
-from ming_sim.issues import bind_content
+from ming_sim.flows import (
+    apply_annual_grain_flows,
+    apply_annual_population_flows,
+    apply_fixed_period_flows,
+    calc_province_fiscal,
+    compute_budget_lines,
+)
+from ming_sim.issues import apply_score_extraction, bind_content
 from ming_sim.models import Event
 
 
@@ -229,6 +235,231 @@ class EconomyFieldCoverageTests(unittest.TestCase):
         migrated = json.loads(self.db.conn.execute("SELECT fiscal FROM regions WHERE id = 'beizhili'").fetchone()["fiscal"])
         self.assertNotIn("liao_xiang", migrated)
         self.assertEqual(migrated["liao_xiang_li"], 150)
+
+    def test_hidden_land_clearance_changes_tax_basis_and_receipts(self):
+        self._set_region_for_exact_tax_math()
+        before = self._province_detail()
+        row = self.db.conn.execute("SELECT hidden_land, fiscal FROM regions WHERE id = 'beizhili'").fetchone()
+        before_hidden = int(row["hidden_land"])
+        before_fiscal = json.loads(row["fiscal"])
+
+        self.db.apply_region_deltas(
+            self.state,
+            self.event,
+            None,
+            "测试",
+            {
+                "beizhili": {
+                    "隐田": -1200,
+                    "田亩": 1200,
+                    "官民田": 1200,
+                    "原因": "清丈隐田入册",
+                }
+            },
+        )
+
+        row = self.db.conn.execute("SELECT hidden_land, fiscal FROM regions WHERE id = 'beizhili'").fetchone()
+        after_fiscal = json.loads(row["fiscal"])
+        after = self._province_detail()
+        self.assertEqual(int(row["hidden_land"]), before_hidden - 1200)
+        self.assertEqual(int(after_fiscal["guan_min_tian"]), int(before_fiscal["guan_min_tian"]) + 1200)
+        self.assertEqual(after["田赋"], before["田赋"] + 10)
+        self.assertEqual(after["辽饷"], before["辽饷"] + 10)
+
+    def test_annual_grain_and_population_settlement_use_stock_output_population(self):
+        self.state.period = 12
+        self.db.set_fiscal_config("人均年耗粮_base", 3)
+        self.db.set_fiscal_config("人口基础增长率_base", 10)
+        self.db.set_fiscal_config("人口民心增益_base", 5)
+        self.db.set_fiscal_config("人口民心减损_base", 5)
+        self.db.set_fiscal_config("人口动乱减损_base", 5)
+        self.db.set_fiscal_config("人口饥荒减损_base", 10)
+
+        fiscal = {
+            "guan_min_tian": 0,
+            "wang_tian": 0,
+            "huang_tian": 0,
+            "tian_fu_li": 0,
+            "liao_xiang_li": 0,
+            "salt_tax": 0,
+            "commerce_tax": 0,
+            "corruption": 0,
+            "grain_output": 900,
+            "grain_stock": 600,
+        }
+        self.db.conn.execute(
+            """
+            UPDATE regions
+            SET population = 200, public_support = 70, unrest = 0,
+                natural_disaster = '', human_disaster = '', fiscal = ?
+            WHERE id = 'beizhili'
+            """,
+            (json.dumps(fiscal, ensure_ascii=False),),
+        )
+        self.db.conn.commit()
+
+        grain_flows = apply_annual_grain_flows(self.db, self.state)
+        beizhili_grain = next(flow for flow in grain_flows if flow["region"] == "beizhili")
+        self.assertEqual(beizhili_grain["output"], 900)
+        self.assertEqual(beizhili_grain["consumption"], 600)
+        self.assertEqual(beizhili_grain["stock"], 900)
+        self.assertEqual(beizhili_grain["shortfall"], 0)
+
+        pop_flows = apply_annual_population_flows(self.db, self.state, grain_flows)
+        beizhili_pop = next(flow for flow in pop_flows if flow["region"] == "北直隶 / 京师")
+        self.assertEqual(beizhili_pop["rate"], 1.5)
+        self.assertEqual(beizhili_pop["old"], 200)
+        self.assertEqual(beizhili_pop["new"], 203)
+
+        fiscal["grain_output"] = 0
+        fiscal["grain_stock"] = 10
+        self.db.conn.execute(
+            """
+            UPDATE regions
+            SET population = 100, public_support = 30, unrest = 80,
+                natural_disaster = '旱灾', human_disaster = '', fiscal = ?
+            WHERE id = 'beizhili'
+            """,
+            (json.dumps(fiscal, ensure_ascii=False),),
+        )
+        self.db.conn.commit()
+        grain_flows = apply_annual_grain_flows(self.db, self.state)
+        beizhili_grain = next(flow for flow in grain_flows if flow["region"] == "beizhili")
+        self.assertEqual(beizhili_grain["shortfall"], 290)
+        pop_flows = apply_annual_population_flows(self.db, self.state, grain_flows)
+        beizhili_pop = next(flow for flow in pop_flows if flow["region"] == "北直隶 / 京师")
+        self.assertEqual(beizhili_pop["rate"], -1.0)
+        self.assertEqual(beizhili_pop["new"], 99)
+
+        fiscal["grain_output"] = 900
+        fiscal["grain_stock"] = 600
+        self.db.conn.execute(
+            """
+            UPDATE regions
+            SET population = 200, public_support = 70, unrest = 0,
+                natural_disaster = '旱灾', human_disaster = '兵燹', fiscal = ?
+            WHERE id = 'beizhili'
+            """,
+            (json.dumps(fiscal, ensure_ascii=False),),
+        )
+        self.db.conn.commit()
+        grain_flows = apply_annual_grain_flows(self.db, self.state)
+        pop_flows = apply_annual_population_flows(self.db, self.state, grain_flows)
+        beizhili_pop = next(flow for flow in pop_flows if flow["region"] == "北直隶 / 京师")
+        self.assertEqual(beizhili_pop["rate"], 1.5)
+        self.assertEqual(beizhili_pop["new"], 203)
+
+    def test_new_fiscal_items_and_fixed_fiscal_changes_affect_budget(self):
+        apply_score_extraction(
+            self.db,
+            self.state,
+            {
+                "fiscal_creates": [
+                    {
+                        "key": "覆盖人头税_base",
+                        "account": "国库",
+                        "direction": "income",
+                        "display": "覆盖人头税",
+                        "init_value": 1200,
+                        "formula": "per_basis",
+                        "basis": "population",
+                        "rate_unit": "毫/人/年",
+                        "reason": "覆盖测试",
+                    }
+                ],
+                "fiscal_changes": [
+                    {
+                        "key": "宗室禄米_base",
+                        "mode": "set_amount",
+                        "value": 30,
+                        "reason": "月额设为三十万",
+                    },
+                    {
+                        "key": "官俸_base",
+                        "mode": "scale_amount",
+                        "value": -20,
+                        "reason": "官俸削二成",
+                    },
+                ],
+            },
+            content=self.content,
+        )
+
+        budget = compute_budget_lines(self.db, self.state)
+        poll_tax = next(item for item in budget["国库"]["income"] if item["name"] == "覆盖人头税")
+        zongshi = next(item for item in budget["国库"]["expense"] if item["name"] == "宗室禄米")
+        guanfeng = next(item for item in budget["国库"]["expense"] if item["name"] == "百官俸禄")
+        self.assertGreater(poll_tax["amount"], 0)
+        self.assertEqual(zongshi["amount"], 30)
+        self.assertEqual(guanfeng["amount"], 20)
+
+    def test_monthly_flow_settles_army_arrears_and_building_income_maintenance(self):
+        self.state.metrics["国库"] = 5
+        self.state.metrics["内库"] = 100
+        for key in (
+            "金花银_rate", "矿税_rate", "织造_rate",
+            "宗室禄米_rate", "官俸_rate", "工程_rate", "赈灾_rate",
+            "宫廷_rate", "内廷俸_rate", "妃嫔_rate",
+        ):
+            self.db.set_fiscal_config(key, 0)
+        zero_fiscal = {
+            "guan_min_tian": 0,
+            "wang_tian": 0,
+            "huang_tian": 0,
+            "tian_fu_li": 0,
+            "liao_xiang_li": 0,
+            "salt_tax": 0,
+            "commerce_tax": 0,
+            "corruption": 0,
+            "grain_output": 0,
+            "grain_stock": 0,
+        }
+        self.db.conn.execute(
+            "UPDATE regions SET fiscal = ?",
+            (json.dumps(zero_fiscal, ensure_ascii=False),),
+        )
+        self.db.conn.execute("UPDATE armies SET maintenance_per_turn = 0")
+        self.db.conn.execute(
+            """
+            UPDATE armies
+            SET maintenance_per_turn = 10, arrears = 0, morale = 50
+            WHERE id = 'guanning'
+            """
+        )
+        self.db.conn.execute("DELETE FROM buildings")
+        self.db.add_building(
+            self.state,
+            "beizhili",
+            "覆盖税关",
+            "财政",
+            condition=50,
+            maintenance=3,
+            output_metric="国库",
+            output_amount=10,
+        )
+        self.db.conn.commit()
+
+        flows = apply_fixed_period_flows(self.db, self.state)
+
+        army = self.db.conn.execute(
+            "SELECT arrears, morale FROM armies WHERE id = 'guanning'"
+        ).fetchone()
+        self.assertEqual(int(army["arrears"]), 5)
+        self.assertLess(int(army["morale"]), 50)
+        self.assertTrue(any(flow.get("category") == "各军军饷" and flow.get("shortfall") == 5 for flow in flows))
+        self.assertTrue(any(flow.get("category") == "建筑产出" and flow.get("building") == "覆盖税关" and flow.get("amount") == 5 for flow in flows))
+        self.assertTrue(any(flow.get("category") == "建筑维护" and flow.get("building") == "覆盖税关" and flow.get("needed") == 3 for flow in flows))
+
+        ledger = self.db.conn.execute(
+            """
+            SELECT category, delta
+            FROM economy_ledger
+            WHERE category IN ('建筑产出', '建筑维护')
+            ORDER BY id
+            """
+        ).fetchall()
+        self.assertIn(("建筑产出", 5.0), [(row["category"], float(row["delta"])) for row in ledger])
+        self.assertIn(("建筑维护", -3.0), [(row["category"], float(row["delta"])) for row in ledger])
 
 
 if __name__ == "__main__":

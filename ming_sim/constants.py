@@ -33,7 +33,7 @@ FISCAL_QUANTITY_FIELDS = (
 )
 ARMY_SCORE_FIELDS = ("supply", "morale", "training", "equipment", "arrears", "mobility", "loyalty")
 ARMY_QUANTITY_FIELDS = ("manpower", "maintenance_per_turn")
-ARMY_TEXT_FIELDS = ("station", "commander", "controller", "troop_type", "status", "owner_power")
+ARMY_TEXT_FIELDS = ("name", "station", "commander", "controller", "troop_type", "status", "owner_power")
 BUILDING_CATEGORIES = ("财政", "军事", "民生", "科技", "交通", "内廷")
 BUILDING_OUTPUT_METRICS = ("国库", "内库", "民心", "皇威", "")
 BUILDING_SCORE_FIELDS = ("condition", "risk")
@@ -132,6 +132,7 @@ REGION_FIELD_LABELS = {
     "commerce_tax": "商税基数",
 }
 ARMY_FIELD_LABELS = {
+    "name": "番号",
     "station": "驻扎地",
     "commander": "统帅",
     "controller": "主管",

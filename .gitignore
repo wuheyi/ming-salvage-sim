@@ -15,6 +15,10 @@ env/
 secrets/
 build
 dist
+!web/build/
+!web/build/icon.png
+!web/build/icon.ico
+!web/build/icon.icns
 # Logs and runtime files
 *.log
 logs/

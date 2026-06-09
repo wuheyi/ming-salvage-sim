@@ -18,6 +18,7 @@
 | `loyalty` | 忠诚 | 同上 |
 | `manpower` | 人数 | **整数人**（非「万人」），既有军队变化只填增量 |
 | `maintenance_per_turn` | 月维护费 | 万两；既有军队变化只填增量（叛军新建可 0=就地劫掠） |
+| `name` | 番号 / 军名 | 中文，既有军队改番号时填**新值**；新建军队填中文军号 |
 | `station` | 驻地 | 中文，填**新值** |
 | `commander` | 统帅 | 姓名，填**新值** |
 | `troop_type` | 兵种 | 如募兵/降军/骑兵，填新值 |
@@ -46,6 +47,7 @@
 | 扩编 | `manpower`、`maintenance_per_turn`，可带 training/equipment/supply/morale |
 | 裁撤 | `manpower` 负、`maintenance_per_turn` 负、`status` |
 | 撤销 | manpower/maintenance 减到 0、`status:"撤销"`；余部并入另军则另写对方 `manpower` |
+| 改番号 / 赐军号 | `name`、`status` |
 | 改编制 | `troop_type`、`maintenance_per_turn`、`training`、`equipment`、`status` |
 | 改主帅 | `commander` |
 | 调度 | `station`、`status`，可带 `supply`/`mobility` |

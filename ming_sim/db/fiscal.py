@@ -176,6 +176,15 @@ class _FiscalMixin:
             _seed_missing()
             _refresh_fiscal_metadata()
 
+        def _migrate_fiscal_v13_remove_disaster_population_penalty() -> None:
+            """v13：natural_disaster/human_disaster 只作叙事字段，不再自动扣年度人口。"""
+            self.conn.execute(
+                "DELETE FROM fiscal_config WHERE key = ?",
+                ("人口灾荒减损_base",),
+            )
+            _seed_missing()
+            _refresh_fiscal_metadata()
+
         # 每版迁移：从 N-1 → N，只动那版真正变的东西。键＝目标版本号 N。
         # 不在表里的版本步走默认 _seed_missing（只补缺 key）。将来要改某 key 默认 / 删某 key /
         # 加新 key，就在这里登记一条 lambda，只动那一项，别动其它——这样玩家改过的全保住。
@@ -186,6 +195,8 @@ class _FiscalMixin:
             11: _seed_missing,
             # v12：裁掉已转入 regions.fiscal/公式实算的旧 dynamic 目录键。
             12: _migrate_fiscal_v12_remove_obsolete_dynamic,
+            # v13：移除由天灾/人祸文本非空触发的人口硬扣。
+            13: _migrate_fiscal_v13_remove_disaster_population_penalty,
             # 8: lambda: self._add_fiscal_key("关税_base", ...),   # 例：将来加新税
         }
 
@@ -339,6 +350,77 @@ class _FiscalMixin:
             self.conn.execute(
                 "UPDATE regions SET fiscal = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
                 (json.dumps(fiscal, ensure_ascii=False), str(row["id"])),
+            )
+            touched += 1
+        if touched:
+            self.conn.commit()
+        return touched
+
+    # 可按「绝对万两增量」全国摊派的省级税字段（额是万两/月，能直接加减）。
+    # 辽饷/田赋是「亩率·毫」不在此（绝对万两加它没意义，调它们走 scale_*）。
+    _ABS_DELTA_REGION_FIELD = {"盐税": "salt_tax", "商税": "commerce_tax"}
+
+    def apply_dynamic_fiscal_delta(self, stem: str, total_delta: int, region_id: str = "") -> int:
+        """把「全国/某省 商税或盐税 月额 +X/-X 万两」落到 regions.fiscal。
+
+        - region_id 填省 id：该省字段直接 += total_delta（下限 0）。
+        - region_id 为空＝全国：把 total_delta 按**各省现有占比**摊派到每省（占比大的多摊），
+          末位省吃掉四舍五入余数，保证摊派总和恰为 total_delta；全省皆 0 时按省数均摊。
+        玩家「加征商税十万」不分省即走全国分支——数据仍逐省落库（实收只认 regions.fiscal），
+        却不必让玩家/LLM 指定省份。返回被改动的省数。仅 商税/盐税 适用；其余 stem 返回 0。
+        """
+        field = self._ABS_DELTA_REGION_FIELD.get(stem)
+        if field is None or total_delta == 0:
+            return 0
+        if region_id:
+            row = self.conn.execute("SELECT fiscal FROM regions WHERE id = ?", (region_id,)).fetchone()
+            if row is None:
+                return 0
+            fiscal: dict = json.loads(str(row["fiscal"] or "{}"))
+            old = int(fiscal.get(field, 0) or 0)
+            new = max(0, old + int(total_delta))
+            if new == old:
+                return 0
+            fiscal[field] = new
+            self.conn.execute(
+                "UPDATE regions SET fiscal = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (json.dumps(fiscal, ensure_ascii=False), region_id),
+            )
+            self.conn.commit()
+            return 1
+        # 全国按占比摊派
+        rows = self.conn.execute("SELECT id, fiscal FROM regions").fetchall()
+        provinces = []
+        for r in rows:
+            f = json.loads(str(r["fiscal"] or "{}"))
+            provinces.append((str(r["id"]), f, int(f.get(field, 0) or 0)))
+        base_total = sum(v for _, _, v in provinces)
+        n = len(provinces)
+        if n == 0:
+            return 0
+        # 分配整数增量：按占比取整，余数累加到末位，确保 sum 恰为 total_delta
+        allocs: list[int] = []
+        running = 0
+        for i, (_rid, _f, cur) in enumerate(provinces):
+            if i == n - 1:
+                alloc = int(total_delta) - running  # 末位吃余数
+            elif base_total > 0:
+                alloc = round(int(total_delta) * cur / base_total)
+            else:
+                alloc = round(int(total_delta) / n)  # 全 0 时均摊
+            running += alloc
+            allocs.append(alloc)
+        touched = 0
+        for (rid, f, cur), alloc in zip(provinces, allocs):
+            if alloc == 0:
+                continue
+            new = max(0, cur + alloc)
+            if new == cur:
+                continue
+            f[field] = new
+            self.conn.execute(
+                "UPDATE regions SET fiscal = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (json.dumps(f, ensure_ascii=False), rid),
             )
             touched += 1
         if touched:
