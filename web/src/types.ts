@@ -640,6 +640,7 @@ export type ScenarioEvent = {
   interests: string[];
   audiences: string[];
   event_type: "situation" | "node" | "ending";
+  precondition?: string;
   resolve_condition?: string;
   fail_condition?: string;
   trigger_year?: number;

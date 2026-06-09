@@ -22,6 +22,7 @@ const CHAR_LABELS: Record<string, string> = {
   courage: "胆略",
   style: "风格",
   power_id: "势力",
+  rank: "品秩/位号",
   diplomacy: "外交",
   martial: "军事",
   stewardship: "治政",
@@ -29,14 +30,36 @@ const CHAR_LABELS: Record<string, string> = {
   learning: "学识",
   location: "所在",
   birth_year: "生年",
+  debut_year: "登场年",
+  debut_month: "登场月",
+  historical_death_year: "史实卒年",
+  historical_death_month: "史实卒月",
   status: "状态",
   summary: "简介",
 };
+// 字段内联说明（告诉用户怎么填）。没列的字段不显示提示。
+const CHAR_HELP: Record<string, string> = {
+  office_type: "内阁/六部/督抚/镇守/言官/宗室/勋戚/司礼监/地方 等",
+  faction: "须是上面已存在的派系名",
+  power_id: "明朝臣子填 ming",
+  rank: "后宫位号（皇后/贵妃/妃…），外朝官员留空",
+  loyalty: "0–100", ability: "0–100", integrity: "0–100", courage: "0–100",
+  diplomacy: "0–100，省略回落能力", martial: "0–100，武力值，省略回落能力",
+  stewardship: "0–100，省略回落能力", intrigue: "0–100，省略回落能力", learning: "0–100，省略回落能力",
+  location: "地区 id，如 liaodong/beizhili/guangxi",
+  birth_year: "公历，0=不设",
+  debut_year: "公历，0=开局即在场；填了到该年月才登场",
+  debut_month: "1–12，配合登场年",
+  historical_death_year: "公历，0=不自动离场；填了到该年月自动离场",
+  historical_death_month: "1–12，配合卒年",
+  status: "active/offstage/dismissed/imprisoned/exiled/retired/dead",
+};
 const CHAR_INT_FIELDS = new Set([
   "loyalty", "ability", "integrity", "courage",
-  "diplomacy", "martial", "stewardship", "intrigue", "learning", "birth_year",
+  "diplomacy", "martial", "stewardship", "intrigue", "learning",
+  "birth_year", "debut_year", "debut_month", "historical_death_year", "historical_death_month",
 ]);
-const CHAR_STR_FIELDS = ["name", "office", "office_type", "faction", "style", "power_id", "location", "status", "summary"];
+const CHAR_STR_FIELDS = ["name", "office", "office_type", "faction", "style", "power_id", "rank", "location", "status", "summary"];
 const CHAR_ARR_FIELDS = ["aliases", "personal_skills"];
 const CHAR_ARR_LABELS: Record<string, string> = { aliases: "别名", personal_skills: "特长" };
 
@@ -49,14 +72,46 @@ const EVENT_LABELS: Record<string, string> = {
   severity: "严重度",
   credibility: "可信度",
   event_type: "事项类型",
+  precondition: "触发前提（叙事说明）",
   resolve_condition: "达成条件",
   fail_condition: "失败条件",
   trigger_year: "触发年",
   trigger_month: "触发月",
+  trigger_end_year: "窗口结束年",
+  trigger_end_month: "窗口结束月",
   region_hint: "地区提示",
+  bar_value: "进度条初值",
+  bar_good_meaning: "进度条满端含义",
+  bar_bad_meaning: "进度条见底含义",
+  stage_text: "阶段叙事文案",
+  inertia: "每月惯性漂移",
+  is_historical: "史实锚定情势",
+  auto_trigger: "auto_trigger（硬触发）",
 };
-const EVENT_INT_FIELDS = new Set(["urgency", "severity", "credibility", "trigger_year", "trigger_month"]);
-const EVENT_STR_FIELDS = ["id", "title", "kind", "summary", "resolve_condition", "fail_condition", "region_hint"];
+// 字段内联说明。
+const EVENT_HELP: Record<string, string> = {
+  id: "稳定唯一标识，改它=换一条事件",
+  event_type: "situation=转进度条事项；node=只播报；ending=交结局判定",
+  precondition: "触发前提的人话说明，喂推演由 LLM 判定（叙事背景+结果烈度走向，可列结果分档）；决定能否触发的程序闸看下面的门槛",
+  urgency: "0–100", severity: "0–100", credibility: "0–100",
+  trigger_year: "历史锚定触发年（公历），0=非历史锚定",
+  trigger_month: "1–12，0=年内任意月",
+  trigger_end_year: "候选窗口结束年，0=不设上限",
+  trigger_end_month: "1–12，0=年内任意月",
+  region_hint: "地区 id，如 guangxi",
+  bar_value: "0–100，situation 转事项时进度条初值，0=自动推导",
+  bar_good_meaning: "进度条满端（=100）的含义，不是当前状态",
+  bar_bad_meaning: "进度条见底（=0）的含义，不是当前状态",
+  stage_text: "立项后的阶段叙事，空=用摘要",
+  inertia: "每月自动漂移量，0=不漂",
+  is_historical: "省略=按触发年>0 自动推断",
+  auto_trigger: "达标即由程序硬立项，绕过 LLM 因果判定",
+};
+const EVENT_INT_FIELDS = new Set(["urgency", "severity", "credibility", "trigger_year", "trigger_month", "trigger_end_year", "trigger_end_month", "bar_value", "inertia"]);
+const EVENT_STR_FIELDS = ["id", "title", "kind", "summary", "precondition", "resolve_condition", "fail_condition", "region_hint"];
+// 仅候选事项（seed）才有的字段，历史事项不显示。
+const EVENT_SEED_ONLY_INT = new Set(["trigger_end_year", "trigger_end_month", "bar_value", "inertia"]);
+const EVENT_SEED_ONLY_STR = ["bar_good_meaning", "bar_bad_meaning", "stage_text"];
 const EVENT_ARR_FIELDS = ["interests", "audiences", "tags"];
 const EVENT_ARR_LABELS: Record<string, string> = { interests: "相关方", audiences: "受众", tags: "标签" };
 const EVENT_TYPES = ["situation", "node", "ending"];
@@ -77,6 +132,12 @@ const emptyEvent = (isSeed: boolean): ScenarioEvent => ({
 const arrToText = (v: unknown) => (Array.isArray(v) ? v.join("、") : "");
 const textToArr = (s: string) =>
   s.split(/[、,，\n]/).map((x) => x.trim()).filter(Boolean);
+
+// 字段标签 + 内联说明（help 非空才显示小字提示）。
+function FieldHint({ text }: { text?: string }) {
+  if (!text) return null;
+  return <small className="menu-hint scenario-field-hint">{text}</small>;
+}
 
 function NumberInput({ value, onChange }: { value: number; onChange: (n: number) => void }) {
   return (
@@ -258,12 +319,14 @@ function CharactersTab({
             {CHAR_STR_FIELDS.map((k) => (
               <label key={k} className={k === "summary" ? "wide" : ""}>
                 {CHAR_LABELS[k] || k}
+                <FieldHint text={CHAR_HELP[k]} />
                 <input value={String(c[k] ?? "")} onChange={(e) => setChar(i, { [k]: e.target.value })} />
               </label>
             ))}
             {[...CHAR_INT_FIELDS].map((k) => (
               <label key={k}>
                 {CHAR_LABELS[k] || k}
+                <FieldHint text={CHAR_HELP[k]} />
                 <NumberInput value={Number(c[k] ?? 0)} onChange={(n) => setChar(i, { [k]: n })} />
               </label>
             ))}
@@ -312,21 +375,49 @@ function EventsTab({
           </div>
           <div className="scenario-fields">
             {EVENT_STR_FIELDS.map((k) => (
-              <label key={k} className={k === "summary" || k.endsWith("condition") ? "wide" : ""}>
+              <label key={k} className={k === "summary" || k === "precondition" || k.endsWith("condition") ? "wide" : ""}>
                 {EVENT_LABELS[k] || k}
+                <FieldHint text={EVENT_HELP[k]} />
                 <input value={String(ev[k] ?? "")} onChange={(e) => setEvent(i, { [k]: e.target.value })} />
               </label>
             ))}
             <label>
               {EVENT_LABELS.event_type}
+              <FieldHint text={EVENT_HELP.event_type} />
               <select value={ev.event_type} onChange={(e) => setEvent(i, { event_type: e.target.value as ScenarioEvent["event_type"] })}>
                 {EVENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </label>
-            {[...EVENT_INT_FIELDS].filter((k) => isSeed ? !k.startsWith("trigger_") : true).map((k) => (
-              <label key={k}>
+            {/* 史实锚定情势：三态（默认/是/否）。默认=按触发年自动推断。 */}
+            <label>
+              {EVENT_LABELS.is_historical}
+              <FieldHint text={EVENT_HELP.is_historical} />
+              <select
+                value={ev.is_historical === true ? "1" : ev.is_historical === false ? "0" : ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setEvent(i, { is_historical: v === "" ? undefined : v === "1" });
+                }}
+              >
+                <option value="">默认（按触发年推断）</option>
+                <option value="1">是</option>
+                <option value="0">否</option>
+              </select>
+            </label>
+            {[...EVENT_INT_FIELDS]
+              .filter((k) => isSeed ? !k.startsWith("trigger_year") && k !== "trigger_month" : !EVENT_SEED_ONLY_INT.has(k))
+              .map((k) => (
+                <label key={k}>
+                  {EVENT_LABELS[k] || k}
+                  <FieldHint text={EVENT_HELP[k]} />
+                  <NumberInput value={Number(ev[k] ?? 0)} onChange={(n) => setEvent(i, { [k]: n })} />
+                </label>
+              ))}
+            {isSeed && EVENT_SEED_ONLY_STR.map((k) => (
+              <label key={k} className={k === "stage_text" ? "wide" : ""}>
                 {EVENT_LABELS[k] || k}
-                <NumberInput value={Number(ev[k] ?? 0)} onChange={(n) => setEvent(i, { [k]: n })} />
+                <FieldHint text={EVENT_HELP[k]} />
+                <input value={String(ev[k] ?? "")} onChange={(e) => setEvent(i, { [k]: e.target.value })} />
               </label>
             ))}
             {EVENT_ARR_FIELDS.map((k) => (
@@ -337,7 +428,8 @@ function EventsTab({
             ))}
             {isSeed && (
               <label>
-                auto_trigger（硬触发）
+                {EVENT_LABELS.auto_trigger}
+                <FieldHint text={EVENT_HELP.auto_trigger} />
                 <select value={ev.auto_trigger ? "1" : "0"} onChange={(e) => setEvent(i, { auto_trigger: e.target.value === "1" })}>
                   <option value="0">否</option>
                   <option value="1">是</option>
@@ -349,6 +441,12 @@ function EventsTab({
               value={(ev as any)[gateKey]}
               onChange={(parsed) => setEvent(i, { [gateKey]: parsed })}
             />
+            <div className="scenario-nested-note wide">
+              <small className="menu-hint">
+                结构化效果（过程 ongoing_effects / 达成 effect_on_resolve / 崩坏 effect_on_fail，含建筑创建等）
+                结构较复杂，请用「AI 对话编辑」来增改——表格编辑器只管上面这些字段，保存时会原样保留这些嵌套字段。
+              </small>
+            </div>
           </div>
         </div>
       ))}

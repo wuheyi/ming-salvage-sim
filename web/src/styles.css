@@ -9376,6 +9376,12 @@ button:disabled {
 .scenario-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 12px; }
 .scenario-fields label { margin-bottom: 0 !important; font-size: 0.78rem !important; }
 .scenario-fields label.wide { grid-column: 1 / -1; }
+.scenario-field-hint {
+  display: block; font-size: 0.66rem !important; line-height: 1.25; color: #9c8b63;
+  margin: 1px 0 3px; font-weight: 400;
+}
+.scenario-nested-note { grid-column: 1 / -1; margin-top: 4px; padding: 6px 8px;
+  border: 1px dashed rgba(226, 180, 86, 0.3); border-radius: 6px; background: rgba(226, 180, 86, 0.05); }
 .scenario-add {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; margin-bottom: 6px;
   border: 1px dashed rgba(226, 180, 86, 0.5); border-radius: 6px; background: transparent;

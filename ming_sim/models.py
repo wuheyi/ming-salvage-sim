@@ -80,7 +80,7 @@ class Event:
     is_historical: Optional[bool] = None  # 是否史实锚定情势，喂 simulator 决定浮现策略；JSON 不填则缺省=trigger_year>0
     trigger_end_year: int = 0   # 候选窗口结束年（0=不设上限）
     trigger_end_month: int = 0  # 候选窗口结束月（0=年内任意月）
-    precondition: str = ""  # 触发前提的人话说明，只喂 simulator 当叙事提示，零程序求值（程序闸看 require）
+    precondition: str = ""  # 触发前提的人话说明，喂 simulator 由 LLM 判定（叙事背景+结果烈度/走向，可列结果分档）；不走程序求值（触发与否的程序闸看 require/trigger_gate）
     require: Dict[str, object] = field(default_factory=dict)  # 结构化触发前提（布尔树/扁平 dict，见 gating.evaluate_gate）；空=无可证伪前提（历史既定型）。require 不过则 node 不进候选/不触发
     event_type: str = "situation"  # situation=转 bar issue；node=只播报不转 issue；ending=交结局判定
     trigger_gate: Dict[str, str] = field(default_factory=dict)  # seed 候选门槛：{metric: 比较式}，全满足才进候选

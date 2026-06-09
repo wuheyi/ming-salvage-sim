@@ -94,11 +94,16 @@ def build_scenario_editor_tools(scenario_dir: str) -> list:
         personal_skills_json: str = "[]", aliases_json: str = "[]",
         diplomacy=None, martial=None, stewardship=None, intrigue=None, learning=None,
         location: str = "", birth_year=None, status: str = "", summary: str = "",
+        rank: str = "", debut_year=None, debut_month=None,
+        historical_death_year=None, historical_death_month=None,
     ) -> str:
         """新增或修改一名人物（按姓名定位，已存在则覆盖）。loyalty/ability/integrity/courage 为
         0–100 整数。faction 须是已存在的派系名（不存在请先 upsert_faction）。power_id 明臣填 ming。
         personal_skills_json/aliases_json 是 JSON 数组字符串如 ["制度名分"]，没有填 []，绝不能 null。
-        diplomacy/martial/stewardship/intrigue/learning 为 0–100 整数，省略则回落 ability。"""
+        diplomacy/martial/stewardship/intrigue/learning 为 0–100 整数，省略则回落 ability。
+        rank 品秩/位号（如后宫「皇后/贵妃/妃」，外朝可留空）。
+        debut_year/debut_month 登场年月（公历，0 或省略=开局即在场；填了则到该年月才登场）。
+        historical_death_year/historical_death_month 史实卒年月（0 或省略=不自动离场；填了则到该年月自动离场）。"""
         nm = (name or "").strip()
         if not nm:
             return "人物写入失败：姓名为空。"
@@ -124,18 +129,23 @@ def build_scenario_editor_tools(scenario_dir: str) -> list:
         }
         try:
             for k, v in (("diplomacy", diplomacy), ("martial", martial), ("stewardship", stewardship),
-                         ("intrigue", intrigue), ("learning", learning), ("birth_year", birth_year)):
+                         ("intrigue", intrigue), ("learning", learning), ("birth_year", birth_year),
+                         ("debut_year", debut_year), ("debut_month", debut_month),
+                         ("historical_death_year", historical_death_year),
+                         ("historical_death_month", historical_death_month)):
                 iv = _coerce_int(v)
                 if iv is not None:
                     rec[k] = iv
         except ValueError:
-            return "人物写入失败：五维/生年须为整数。"
+            return "人物写入失败：五维/生年/登场年月/卒年月须为整数。"
         if (location or "").strip():
             rec["location"] = location.strip()
         if (status or "").strip():
             rec["status"] = status.strip()
         if (summary or "").strip():
             rec["summary"] = summary.strip()
+        if (rank or "").strip():
+            rec["rank"] = rank.strip()
 
         data = _load(scenario_dir, "characters")
         chars = data.setdefault("characters", [])
@@ -203,11 +213,25 @@ def build_scenario_editor_tools(scenario_dir: str) -> list:
         trigger_year=None, trigger_month=None,
         trigger_gate: str = "", require: str = "",
         auto_trigger=None, region_hint: str = "", tags_json: str = "[]",
+        precondition: str = "",
+        is_historical=None, trigger_end_year=None, trigger_end_month=None,
+        bar_value=None, bar_good_meaning: str = "", bar_bad_meaning: str = "",
+        stage_text: str = "", inertia=None,
+        ongoing_effects_json: str = "", effect_on_resolve_json: str = "", effect_on_fail_json: str = "",
     ) -> str:
         """新增或修改一个事件（按 id 定位）。file 为 "events"（历史事件，用 trigger_year/month）或
         "seed_events"（随机事件，用 trigger_gate）。urgency/severity/credibility 为 0–100 整数。
         event_type 只能是 situation/node/ending。interests_json/audiences_json/tags_json 是 JSON 数组字符串。
-        trigger_gate/require 是门槛 DSL 的 JSON 对象字符串（可留空）。"""
+        trigger_gate/require 是门槛 DSL 的 JSON 对象字符串（可留空）。
+        precondition 是触发前提的人话说明，喂推演由 LLM 判定（当叙事背景，并据盘面判结果烈度/走向，可列结果分档）；
+        它不走程序求值——决定「能不能触发」的程序闸是 require（历史事件）/trigger_gate（随机事件）。
+        is_historical：是否史实锚定情势（true/false，省略=按 trigger_year>0 自动推断）。
+        trigger_end_year/trigger_end_month：候选窗口结束年月（0=不设上限）。
+        bar_value 是 situation 转 issue 时进度条初值 0–100；bar_good_meaning/bar_bad_meaning 是进度条满端/见底端的含义（不是当前状态）。
+        stage_text 是立项后的阶段叙事文案（空=用 summary）。inertia 是每月惯性漂移量（0=不漂）。
+        ongoing_effects_json/effect_on_resolve_json/effect_on_fail_json：过程/达成/崩坏时的结构化效果，
+        JSON 对象字符串，形如 {"metrics":{"国库":-10},"economy":[{"account":"国库","delta":-10,"category":"...","reason":"..."}]}；
+        effect_on_resolve 还可带 "buildings":[{"action":"create","region_id":"guangxi","name":"广西官银矿","category":"财政","output_metric":"国库","output_amount":200,"status":"..."}] 在达成时新建建筑（持续月产）。"""
         fk = (file or "").strip()
         if fk not in ("events", "seed_events"):
             return "事件写入失败：file 须为 events 或 seed_events。"
@@ -228,6 +252,11 @@ def build_scenario_editor_tools(scenario_dir: str) -> list:
             gate = _parse_gate(trigger_gate, "trigger_gate")
             req = _parse_gate(require, "require")
             ty = _coerce_int(trigger_year); tm = _coerce_int(trigger_month)
+            tey = _coerce_int(trigger_end_year); tem = _coerce_int(trigger_end_month)
+            bv = _coerce_int(bar_value); inert = _coerce_int(inertia)
+            ongoing = _parse_gate(ongoing_effects_json, "ongoing_effects_json")
+            on_resolve = _parse_gate(effect_on_resolve_json, "effect_on_resolve_json")
+            on_fail = _parse_gate(effect_on_fail_json, "effect_on_fail_json")
         except ValueError as e:
             return f"事件写入失败：{e}"
         if not interests:
@@ -246,18 +275,42 @@ def build_scenario_editor_tools(scenario_dir: str) -> list:
             rec["fail_condition"] = fail_condition.strip()
         if (region_hint or "").strip():
             rec["region_hint"] = region_hint.strip()
+        if (precondition or "").strip():
+            rec["precondition"] = precondition.strip()
         if tags:
             rec["tags"] = tags
         if ty:
             rec["trigger_year"] = ty
         if tm:
             rec["trigger_month"] = tm
+        if tey:
+            rec["trigger_end_year"] = tey
+        if tem:
+            rec["trigger_end_month"] = tem
         if gate is not None:
             rec["trigger_gate"] = gate
         if req is not None:
             rec["require"] = req
         if auto_trigger is not None:
             rec["auto_trigger"] = bool(auto_trigger) if not isinstance(auto_trigger, str) else auto_trigger.strip().lower() in ("1", "true", "是", "yes")
+        if is_historical is not None:
+            rec["is_historical"] = bool(is_historical) if not isinstance(is_historical, str) else is_historical.strip().lower() in ("1", "true", "是", "yes")
+        if bv:
+            rec["bar_value"] = bv
+        if (bar_good_meaning or "").strip():
+            rec["bar_good_meaning"] = bar_good_meaning.strip()
+        if (bar_bad_meaning or "").strip():
+            rec["bar_bad_meaning"] = bar_bad_meaning.strip()
+        if (stage_text or "").strip():
+            rec["stage_text"] = stage_text.strip()
+        if inert:
+            rec["inertia"] = inert
+        if ongoing is not None:
+            rec["ongoing_effects"] = ongoing
+        if on_resolve is not None:
+            rec["effect_on_resolve"] = on_resolve
+        if on_fail is not None:
+            rec["effect_on_fail"] = on_fail
 
         data = _load(scenario_dir, fk)
         if not isinstance(data, list):
