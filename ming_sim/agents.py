@@ -23,7 +23,7 @@ from ming_sim.llm_config import agent_sampling_settings, for_role as _llm_for_ro
 from ming_sim.llm_contract import abort_llm_contract, fail_if_llm_error
 from ming_sim.llm_model import create_chat_model, extract_agent_text
 from ming_sim.models import GameState, LLMConfig
-from ming_sim.token_stats import record_stream_metrics, tlog
+from ming_sim.token_stats import record_stream_metrics, tlog, use_agno_metrics
 
 _content: Optional[GameContent] = None
 _THINKING_STREAM_CHAR_LIMIT = max(0, int(os.environ.get("MING_SIM_THINKING_STREAM_LIMIT", "600") or "0"))

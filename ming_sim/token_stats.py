@@ -173,7 +173,6 @@ _DASHSCOPE_DYNAMIC_SYSTEM_MARKERS = (
     "【你身上还在办的密令】",
 )
 
-
 def _dashscope_static_prefix_end(content: str) -> int:
     """返回 system 中适合显式缓存的静态前缀长度。"""
     dynamic_starts = [

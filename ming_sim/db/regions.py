@@ -264,6 +264,9 @@ class _RegionsMixin:
                     log_delta = actual_delta
                 else:  # REGION_TEXT_FIELDS
                     text_value = str(value).strip()[:160]
+                    if field == "controlled_by":
+                        # 先归一化（中文名/别名/大小写 → 标准 power id），与 armies.py 同。
+                        text_value = _normalize_power_id(self.conn, text_value) or text_value
                     if not text_value or text_value in ("None", "null") or text_value == str(old_value):
                         continue
                     if field == "controlled_by":
