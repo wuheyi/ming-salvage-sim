@@ -574,7 +574,7 @@ export function ApiSettingsModal({
   onSaved: () => Promise<void>;
 }) {
   const [baseUrl, setBaseUrl] = React.useState(initial?.base_url || "https://api.deepseek.com");
-  const [model, setModel] = React.useState(initial?.model || "deepseek-chat");
+  const [model, setModel] = React.useState(initial?.model || "deepseek-v4-flash");
   const [advancedModel, setAdvancedModel] = React.useState(initial?.advanced_model || "");
   const [advancedBaseUrl, setAdvancedBaseUrl] = React.useState(initial?.advanced_base_url || "");
   const [advancedApiKey, setAdvancedApiKey] = React.useState("");
@@ -635,7 +635,7 @@ export function ApiSettingsModal({
         </label>
         <label>
           Model
-          <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="deepseek-chat" />
+          <input value={model} onChange={(e) => setModel(e.target.value)} placeholder="deepseek-v4-flash" />
         </label>
         <label>
           Thinking Level <small className="menu-hint">（空=默认，请填写你的模型支持的值。）</small>

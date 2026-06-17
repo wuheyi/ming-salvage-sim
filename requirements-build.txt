@@ -1,0 +1,8 @@
+-r requirements.txt
+
+# Desktop app packaging.
+pyinstaller>=6.21.0
+
+# PyInstaller specs collect tiktoken data when present; install it for
+# reproducible backend sidecar builds across local and CI environments.
+tiktoken>=0.13.0

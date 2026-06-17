@@ -1,5 +1,6 @@
 {
   "name": "ming-salvage-web",
+  "productName": "MingSalvageSim",
   "private": true,
   "version": "0.1.0",
   "description": "Electron desktop shell and web frontend for Ming Salvage Sim.",
@@ -11,8 +12,9 @@
     "build": "tsc -b && vite build",
     "electron": "npm run build && electron electron/main.cjs",
     "electron:dev": "npm run build && electron electron/main.cjs",
-    "backend:build": "cd .. && python3 -m PyInstaller MingSalvageBackend.spec --noconfirm --distpath build/backend-dist --workpath build/backend-work",
-    "dist:mac": "npm run build && npm run backend:build && electron-builder --mac dir",
+    "backend:build": "node scripts/build-backend.cjs",
+    "dist:mac": "npm run build && npm run backend:build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir",
+    "dist:mac:signed": "npm run build && npm run backend:build && electron-builder --mac dir",
     "dist:win": "npm run build && npm run backend:build && electron-builder --win dir",
     "preview": "vite preview --host 127.0.0.1"
   },

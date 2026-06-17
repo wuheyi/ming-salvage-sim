@@ -2969,7 +2969,7 @@ select:focus-visible {
     radial-gradient(130% 100% at 50% -8%, rgba(150, 44, 32, 0.30), transparent 56%),
     radial-gradient(100% 80% at 50% 110%, rgba(80, 22, 16, 0.22), transparent 60%),
     linear-gradient(180deg, rgba(21, 13, 9, 0.92), rgba(13, 9, 7, 0.96)),
-    url("/bg_ending.webp") center / cover no-repeat;
+    url("/bg_node.png") center / cover no-repeat;
 }
 
 /* hero：印玺 + 庙号大字 */
@@ -4855,7 +4855,7 @@ button:disabled {
 .fullscreen-modal.modal-bg-ending {
   background:
     linear-gradient(180deg, rgba(22, 14, 10, 0.96), rgba(16, 11, 8, 0.98)),
-    url("/bg_ending.webp") center / cover no-repeat !important;
+    url("/bg_node.png") center / cover no-repeat !important;
 }
 
 /* 顶栏标题改浅金，配深底 */
@@ -4893,7 +4893,7 @@ button:disabled {
     radial-gradient(130% 100% at 50% -8%, rgba(150, 44, 32, 0.30), transparent 56%),
     radial-gradient(100% 80% at 50% 110%, rgba(80, 22, 16, 0.22), transparent 60%),
     linear-gradient(180deg, rgba(21, 13, 9, 0.92), rgba(13, 9, 7, 0.96)),
-    url("/bg_ending.webp") center / cover no-repeat !important;
+    url("/bg_node.png") center / cover no-repeat !important;
 }
 
 .modal-bg-ending .ending-hero {

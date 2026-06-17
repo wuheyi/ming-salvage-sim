@@ -9,12 +9,21 @@ MING_SIM_STEAM_APP_ID=4809750 npm run electron
 
 This uses the local Python environment and starts `uvicorn web_app:app`.
 
+For packaging, install the build dependencies once from the repository root:
+
+```bash
+python -m pip install -r requirements-build.txt
+```
+
 ## Build backend sidecar
 
 ```bash
 cd web
 npm run backend:build
 ```
+
+`backend:build` prefers `../.venv/bin/python` when it exists, then falls back
+to Python 3.13/3.12/3.11 on `PATH`. Set `PYTHON=/path/to/python` to override.
 
 Output:
 
@@ -33,6 +42,14 @@ Output:
 
 ```text
 web/release/mac-arm64/MingSalvageSim.app
+```
+
+`dist:mac` intentionally disables automatic certificate discovery so local
+builds produce a runnable unsigned `.app` without waiting on Developer ID
+signing. For a signed local release build, use:
+
+```bash
+npm run dist:mac:signed
 ```
 
 ## Build Windows unpacked app

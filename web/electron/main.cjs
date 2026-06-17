@@ -7,12 +7,17 @@ const os = require("node:os");
 const path = require("node:path");
 const steam = require("./steam.cjs");
 
+const appName = "MingSalvageSim";
 const repoRoot = path.resolve(__dirname, "..", "..");
 const host = "127.0.0.1";
 const isPackaged = app.isPackaged;
 
+app.setName(appName);
+app.setPath("userData", path.join(app.getPath("appData"), appName));
+
 let backend = null;
 let mainWindow = null;
+let appLogPath = null;
 
 const log = (...args) => console.log("[electron]", ...args);
 const warn = (...args) => console.warn("[electron]", ...args);
@@ -108,15 +113,28 @@ const backendSpawnSpec = () => {
   };
 };
 
+const appendAppLog = (prefix, chunk) => {
+  if (!appLogPath) return;
+  try {
+    fs.appendFileSync(appLogPath, `${prefix} ${chunk}`);
+  } catch {
+    // File logging is a debug aid only; never break the app for it.
+  }
+};
+
 const startBackend = async () => {
   const port = await findOpenPort();
+  const pythonDataDir = path.join(app.getPath("userData"), "python-data");
+  fs.mkdirSync(pythonDataDir, { recursive: true });
+  appLogPath = path.join(pythonDataDir, "launcher.log");
+  appendAppLog("[electron]", `start packaged=${isPackaged} platform=${process.platform} port=${port}\n`);
   const dotenv = isPackaged ? {} : readDotEnv(path.join(repoRoot, ".env"));
   const env = {
     ...process.env,
     ...dotenv,
-    MING_SIM_DUMP_LLM: process.env.MING_SIM_DUMP_LLM || dotenv.MING_SIM_DUMP_LLM || "1",
+    MING_SIM_DUMP_LLM: process.env.MING_SIM_DUMP_LLM || dotenv.MING_SIM_DUMP_LLM || "0",
     MING_SIM_ELECTRON: "1",
-    MING_SIM_USER_DATA_DIR: path.join(app.getPath("userData"), "python-data"),
+    MING_SIM_USER_DATA_DIR: pythonDataDir,
     PYTHONUNBUFFERED: "1",
   };
   const spawnSpec = backendSpawnSpec();
@@ -128,10 +146,17 @@ const startBackend = async () => {
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  backend.stdout.on("data", (chunk) => process.stdout.write(`[fastapi] ${chunk}`));
-  backend.stderr.on("data", (chunk) => process.stderr.write(`[fastapi] ${chunk}`));
+  backend.stdout.on("data", (chunk) => {
+    process.stdout.write(`[fastapi] ${chunk}`);
+    appendAppLog("[fastapi]", chunk);
+  });
+  backend.stderr.on("data", (chunk) => {
+    process.stderr.write(`[fastapi] ${chunk}`);
+    appendAppLog("[fastapi]", chunk);
+  });
   backend.on("exit", (code, signal) => {
     log(`FastAPI exited code=${code ?? "null"} signal=${signal ?? "null"}`);
+    appendAppLog("[electron]", `FastAPI exited code=${code ?? "null"} signal=${signal ?? "null"}\n`);
     backend = null;
     if (!app.isQuitting) app.quit();
   });
